@@ -41,6 +41,11 @@ final class RandomTheme {
     static final double MIN_VISITED = 5.5;   // posjeceni linkovi
     static final double MIN_TAB = 7.0;       // slova na tabovima
     static final double MIN_ACCENT = 3.0;    // akcent, okvir danasnjeg dana, crvene linije
+    static final double MIN_TEXT_BAR = 7.0;  // glavni tekst na nedjeljnoj traci i pozadini naslova ispod mjeseca
+    static final double MIN_BTN = 4.5;       // slova na dugmadi
+    static final double MIN_APART = 1.15;    // najmanja razlika (kontrast) izmedju linka, posjecenog linka i teksta
+    /** Relativna luminansa pri kojoj je kontrast prema bijeloj i prema crnoj isti (granica svijetla/tamna). */
+    static final double LIGHT_LUM = 0.179;
 
     static Result generate(Random r, int mode) {
         return generate(r, mode, null);
@@ -62,7 +67,7 @@ final class RandomTheme {
     static Result generate(Random r, int mode, Integer base, Integer holidayColor) {
         float[] bh = base != null ? rgbToHsl(base.intValue()) : null;
         boolean light;
-        if (bh != null) light = bh[2] >= 0.5f;
+        if (bh != null) light = relLum(base.intValue()) >= LIGHT_LUM;
         else if (mode == LIGHT) light = true;
         else if (mode == DARK) light = false;
         else light = r.nextBoolean();
@@ -89,10 +94,16 @@ final class RandomTheme {
         }
         int bg = hsl(h0, bgS, bgL);
         int surface = hsl(h0, bgS, clamp(light ? bgL + 0.03f : bgL + 0.025f, 0f, 0.99f));
-        int row = hsl(h0, Math.min(1f, bgS + 0.05f), light ? bgL - 0.045f : bgL + 0.04f);
-        int month = hsl(h0 + 8f, Math.min(1f, bgS + 0.10f), light ? bgL - 0.075f : bgL + 0.055f);
+        int row = separate(h0, Math.min(1f, bgS + 0.05f), light ? bgL - 0.045f : bgL + 0.04f, dir, 1.04, bg);
+        int month = separate(h0 + 8f, Math.min(1f, bgS + 0.10f), light ? bgL - 0.075f : bgL + 0.055f, dir, 1.06, bg);
         int webBg = bg;
-        int[] surfaces = { bg, surface, row, webBg, month };
+        // nedjeljna traka i pozadina naslova ispod mjeseca: racunaju se ovdje da bi se i tekst/naslovi/praznici
+        // fitovali prema njima (ranije su se racunale poslije)
+        int sunBg = separate(h0 - 14f + r.nextFloat() * 28f, Math.min(1f, bgS + 0.06f + r.nextFloat() * 0.08f),
+                light ? bgL - 0.09f - r.nextFloat() * 0.03f : bgL + 0.08f + r.nextFloat() * 0.03f, dir, 1.06, bg);
+        int calTitleBg = hsl(h0 - 14f + r.nextFloat() * 28f, Math.min(1f, bgS + 0.02f + r.nextFloat() * 0.06f),
+                light ? bgL - 0.025f - r.nextFloat() * 0.025f : bgL + 0.02f + r.nextFloat() * 0.025f);
+        int[] surfaces = { bg, surface, row, webBg, month, sunBg, calTitleBg };
 
         // ---- trake (tabovi): uvijek tamne, bijela slova (kao u originalnoj aplikaciji)
         float hb = h0 + (r.nextFloat() - 0.5f) * 40f;
@@ -124,7 +135,10 @@ final class RandomTheme {
 
         // ---- tekstovi
         float ts = 0.05f + r.nextFloat() * 0.15f;
-        int text = fit(h0, ts, light ? 0.12f : 0.90f, dir, MIN_TEXT, surfaces);
+        int text = fit(h0, ts, light ? 0.12f : 0.90f, dir, MIN_TEXT, bg, surface, row, webBg, month);
+        if (minContrast(text, sunBg, calTitleBg) < MIN_TEXT_BAR) {
+            text = fit(h0, ts, rgbToHsl(text)[2], dir, MIN_TEXT_BAR, sunBg, calTitleBg);
+        }
         int webText = fit(h0, ts, light ? 0.17f : 0.84f, dir, MIN_WEB_TEXT, webBg, surface);
         int head2 = fit(h0, ts, light ? 0.10f : 0.92f, dir, MIN_TEXT, webBg);
         int holiday;
@@ -139,8 +153,10 @@ final class RandomTheme {
         // naslovi: vlastita nijansa u blizini nijanse praznika
         int title = fit(ht + (r.nextFloat() - 0.5f) * 60f, as * 0.9f, light ? 0.28f : 0.74f, dir, MIN_TITLE,
                 surfaces);
-        int link = fit(hl, as, light ? 0.32f : 0.72f, dir, MIN_LINK, webBg, surface);
-        int visited = fit(hv, as * 0.8f, light ? 0.34f : 0.74f, dir, MIN_VISITED, webBg, surface);
+        int link = fitApart(hl, as, light ? 0.32f : 0.72f, dir, MIN_LINK, new int[] { webBg, surface },
+                new int[] { webText }, MIN_APART);
+        int visited = fitApart(hv, as * 0.8f, light ? 0.34f : 0.74f, dir, MIN_VISITED, new int[] { webBg, surface },
+                new int[] { webText, link }, MIN_APART);
         // ozname verzija (СРПСКИ, ЦРКВЕНОСЛОВЕНСКИ…) su u knjigama zelene: nijansa ostaje oko zelene
         float hm = 120f + (r.nextFloat() - 0.5f) * 40f;
         int mark = fit(hm, as, light ? 0.30f : 0.72f, dir, MIN_LINK, webBg, surface);
@@ -195,12 +211,8 @@ final class RandomTheme {
 
         // ---- trake kalendara: nedelja, mjesec i godina, naslov ispod mjeseca (svaka ima vlastitu pozadinu i tekst)
         // pozadine se razlikuju od pozadine, neparnih dana i trake mjeseca; tekst ima kontrast prema svojoj pozadini
-        int sunBg = hsl(h0 - 14f + r.nextFloat() * 28f, Math.min(1f, bgS + 0.06f + r.nextFloat() * 0.08f),
-                light ? bgL - 0.09f - r.nextFloat() * 0.03f : bgL + 0.08f + r.nextFloat() * 0.03f);
         int sunText = fit(ht + (r.nextFloat() - 0.5f) * 50f, as, light ? 0.30f : 0.74f, dir, MIN_TITLE, sunBg);
         int monthText = fit(ht + (r.nextFloat() - 0.5f) * 50f, as, light ? 0.30f : 0.74f, dir, MIN_TITLE, month);
-        int calTitleBg = hsl(h0 - 14f + r.nextFloat() * 28f, Math.min(1f, bgS + 0.02f + r.nextFloat() * 0.06f),
-                light ? bgL - 0.025f - r.nextFloat() * 0.025f : bgL + 0.02f + r.nextFloat() * 0.025f);
         int calTitleText = fit(ht + (r.nextFloat() - 0.5f) * 50f, as, light ? 0.30f : 0.74f, dir, MIN_TITLE,
                 calTitleBg);
 
@@ -217,9 +229,15 @@ final class RandomTheme {
         int titleLine = blendUntil(bg, text, 0.25f, 1.6, bg, surface, row);
 
         // dugmad (претходно / календар / следеће): srednje tamna boja iz nijanse praznika, tekst bijel ili crn prema kontrastu
-        int btnBg = hsl(ht, Math.min(1f, as), light ? 0.40f : 0.36f);
+        float btnL = light ? 0.40f : 0.36f;
+        int btnBg = hsl(ht, Math.min(1f, as), btnL);
         int tw = hsl(ht, 0.15f, 0.97f);
         int tb = hsl(ht, 0.15f, 0.07f);
+        // srednja luminansa daje slab kontrast i prema bijelom i prema crnom: potamni dok ne bude dovoljno
+        for (int i = 0; i < 40 && Math.max(minContrast(tw, btnBg), minContrast(tb, btnBg)) < MIN_BTN; i++) {
+            btnL -= 0.01f;
+            btnBg = hsl(ht, Math.min(1f, as), btnL);
+        }
         int btnText = minContrast(tw, btnBg) >= minContrast(tb, btnBg) ? tw : tb;
         int btnBorder = mix(btnBg, btnText, 0.45f);
         // strelice za mjesece (na traci mjeseca) i ikonica kalendara (nijansa)
@@ -390,6 +408,34 @@ final class RandomTheme {
             c = hsl(h, s, l);
         }
         return c;
+    }
+
+    /** Boja pomjerana u smjeru dir (korak 0.01 svjetline) dok kontrast prema ref nije najmanje min. */
+    private static int separate(float h, float s, float l, int dir, double min, int ref) {
+        int c = hsl(h, s, l);
+        for (int i = 0; i < 40 && contrast(c, ref) < min; i++) {
+            l = clamp(l + dir * 0.01f, 0f, 1f);
+            c = hsl(h, s, l);
+        }
+        return c;
+    }
+
+    /**
+     * Kao fit, ali trazi najblizu svjetlinu (prvo u smjeru dir, tj. prema vecem kontrastu) koja ima kontrast >= min
+     * prema svim bgs i istovremeno se od svake boje iz avoid razlikuje kontrastom >= sep. Ako takve nema, vraca fit.
+     */
+    private static int fitApart(float h, float s, float l0, int dir, double min, int[] bgs, int[] avoid, double sep) {
+        for (int d = 0; d <= 100; d++) {
+            for (int k = 0; k < 2; k++) {
+                if (d == 0 && k == 1) break;
+                float l = l0 + (k == 0 ? dir : -dir) * d * 0.01f;
+                if (l < 0f || l > 1f) continue;
+                int c = hsl(h, s, l);
+                if (minContrast(c, bgs) < min) continue;
+                if (minContrast(c, avoid) >= sep) return c;
+            }
+        }
+        return fit(h, s, l0, dir, min, bgs);
     }
 
     /** Mijesa pozadinu prema tekstu (udio t, pa sve veci) dok kontrast prema svim pozadinama nije dovoljan. */
