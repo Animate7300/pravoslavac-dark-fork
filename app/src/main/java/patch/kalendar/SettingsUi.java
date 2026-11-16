@@ -45,11 +45,6 @@ import java.util.Map;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
-/**
- * Podesavanja modula unutar aplikacije Pravoslavac (Meni -> Опције -> Подешавања).
- * Izvrsava se u procesu Pravoslavca; postavke se cuvaju u njegovim podacima (Prefs.FILE).
- * Pozadina ekrana je Dark.BG, a tekst Dark.TEXT (c_bg i c_text odabrane teme).
- */
 final class SettingsUi {
 
     private final Activity act;
@@ -60,21 +55,16 @@ final class SettingsUi {
     private View drawerChild;
     private Object backCb;
     private boolean closed;
-    /** Odabrani tab: 0 = opcije (prekidaci), 1 = teme. */
     private int tab;
     private int builtTab = -1;
     private ScrollView scroll;
 
     private List<Themes.Theme> themes;
-    /** Zadnja boja koju je izmijenio otvoreni dijalog (uzastopne izmjene iste boje su jedan korak vracanja). */
     private String lastUndoKey;
-    /** Osvjezava stanje dugmeta za vracanje u otvorenom dijalogu (ili null). */
     private Runnable undoRefresh;
     private String selId;
 
-    /** Neka postavka koja trazi ponovno kreiranje ekrana je promijenjena. */
     private boolean dirty;
-    /** Tema je iskljucena: ne mogu se vratiti originalni resursi bez restarta aplikacije. */
     private boolean darkOff;
 
     private SettingsUi(Activity act) {
@@ -86,7 +76,7 @@ final class SettingsUi {
         try {
             SettingsUi c = current;
             if (c != null && !c.closed && c.act == act && c.host != null && c.host.getParent() != null) {
-                return; // vec otvoreno
+                return;
             }
             if (c != null) c.close(false);
             SettingsUi s = new SettingsUi(act);
@@ -97,13 +87,11 @@ final class SettingsUi {
         }
     }
 
-    /** Zatvara podesavanja ako su otvorena (npr. kad se u meniju izabere druga stavka). */
     static void dismiss(Activity act) {
         SettingsUi s = current;
         if (s != null && !s.closed && s.act == act) s.close(true);
     }
 
-    /** Back: ako je bocni meni otvoren pusta aplikaciji da ga zatvori, inace zatvara podesavanja. */
     static boolean onBack(Activity act) {
         SettingsUi s = current;
         if (s == null || s.closed || s.act != act) return false;
@@ -121,11 +109,9 @@ final class SettingsUi {
         attach();
     }
 
-    /** Poslije recreate() podesavanja se ponovo otvaraju (ako je ovo postavljeno). */
     private static boolean pendingReopen;
     private static int pendingTab;
 
-    /** Ponovo napravi ekran aplikacije (nova tema/originalne boje) i odmah vrati podesavanja na isti tab. */
     private void recreateKeepingSettings() {
         final Activity a = act;
         pendingReopen = true;
@@ -144,7 +130,6 @@ final class SettingsUi {
         });
     }
 
-    /** Poziva se iz onCreate-a glavne aktivnosti: ako je recreate pokrenut iz podesavanja, otvori ih opet. */
     static void reopenIfPending(final Activity a) {
         if (!pendingReopen) return;
         pendingReopen = false;
@@ -180,7 +165,6 @@ final class SettingsUi {
             XposedBridge.log(t);
         }
         if (apply && dirty && !darkOff) {
-            // Primijeni promjene na otvoreni ekran aplikacije.
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
@@ -194,7 +178,6 @@ final class SettingsUi {
         }
     }
 
-    /** Prozor podesavanja: hvata Back dok je fokus unutar njega. */
     private final class Host extends FrameLayout {
         Host(Context c) {
             super(c);
@@ -210,12 +193,6 @@ final class SettingsUi {
         }
     }
 
-    // ------------------------------------------- unutar prozora aplikacije
-
-    /**
-     * Ubacuje podesavanja u hijerarhiju aplikacije, ispod trake i ISPOD bocnog menija
-     * (u DrawerLayout, ispred ladice), pa meni iz ikone s tri crtice iskace preko njih.
-     */
     private void attach() {
         View decor = act.getWindow().getDecorView();
         ViewGroup p = null;
@@ -227,7 +204,6 @@ final class SettingsUi {
             try {
                 lv = (View) XposedHelpers.getObjectField(act, "H0");
             } catch (Throwable t) {
-                // probaj trazenje po klasi
             }
             if (lv == null) lv = findInstance(decor, ExpandableListView.class);
             View c = lv;
@@ -259,7 +235,6 @@ final class SettingsUi {
         registerBack();
     }
 
-    /** Bocni meni je (djelimicno) vidljiv. */
     private boolean drawerOpen() {
         View d = drawerChild;
         if (d == null || parent == null) return false;
@@ -280,12 +255,10 @@ final class SettingsUi {
         try {
             Back33.unregister(act, backCb);
         } catch (Throwable t) {
-            // nije kriticno
         }
         backCb = null;
     }
 
-    /** Back gesta (predictive back) na Androidu 13+. */
     private static final class Back33 {
         static Object register(final Activity a, final SettingsUi s) {
             OnBackInvokedCallback cb = null;
@@ -338,7 +311,6 @@ final class SettingsUi {
         return null;
     }
 
-    /** Donja ivica trake aplikacije na ekranu (px) ili -1 ako trake nema. */
     private int barBottom() {
         try {
             View root = act.getWindow().getDecorView();
@@ -378,9 +350,6 @@ final class SettingsUi {
         return null;
     }
 
-    // ------------------------------------------------------------------ izgled
-
-    /** Teme uključene (boje odabrane teme) ili isključene (originalne boje aplikacije). */
     private boolean themed() {
         return sp.getBoolean(Prefs.KEY_DARK, true);
     }
@@ -401,7 +370,6 @@ final class SettingsUi {
         return themed() ? Dark.TEXT : 0xff000000;
     }
 
-    /** Sekundarni tekst: boja teksta pomijesana s pozadinom. */
     private int dim() {
         int t = text();
         int b = bg();
@@ -424,7 +392,6 @@ final class SettingsUi {
         return tv;
     }
 
-    /** (Ponovo) gradi cijeli ekran; cuva poziciju skrolovanja. */
     private void build() {
         final int scrollY = (scroll != null && builtTab == tab) ? scroll.getScrollY() : 0;
         builtTab = tab;
@@ -445,6 +412,11 @@ final class SettingsUi {
             root.addView(makeSwitch("Теме",
                     "Тема у одабраним бојама.",
                     Prefs.KEY_DARK, true));
+            
+            // >>> DODATO: Opcija za prilagođeni font <<<
+            root.addView(makeSwitch("Прилагођени фонт (Noto Serif)",
+                    "Мења фонт у књигама, житијима и менију.",
+                    Prefs.KEY_CUSTOM_FONT, false));
         } else {
             addThemeSection(root);
         }
@@ -473,7 +445,6 @@ final class SettingsUi {
         });
     }
 
-    /** Tabovi izgledaju kao u aplikaciji (kalendar / raspored citanja): traka boje teme, indikator 3dp. */
     private View makeTabs() {
         LinearLayout bar = new LinearLayout(act);
         bar.setOrientation(LinearLayout.HORIZONTAL);
@@ -534,12 +505,10 @@ final class SettingsUi {
                         Dark.reload();
                         Hook.reapplyResources();
                     } else {
-                        // vrati originalne boje resursa
                         ok = Hook.restoreResources(act);
                         darkOff = !ok;
                     }
                     if (ok) {
-                        // odmah ponovo napravi ekran i vrati se u podesavanja (isti tab)
                         recreateKeepingSettings();
                         return;
                     }
@@ -551,7 +520,8 @@ final class SettingsUi {
                             if (!closed) build();
                         }
                     });
-                } else if (Prefs.KEY_LEFT.equals(key)) {
+                } else if (Prefs.KEY_LEFT.equals(key) || Prefs.KEY_CUSTOM_FONT.equals(key)) {
+                    // >>> DODATO: KEY_CUSTOM_FONT okida recreate da bi se font primenio <<<
                     dirty = true;
                 }
             }
@@ -561,16 +531,13 @@ final class SettingsUi {
         return box;
     }
 
-    // ------------------------------------------------------------------ teme
-
     private void loadThemes() {
         String json = sp.getString(Themes.KEY_THEMES, null);
         themes = Themes.parse(json);
         selId = Themes.find(themes, sp.getString(Themes.KEY_SEL, null)).id;
-        if (json == null) saveThemes(); // prvo otvaranje: upisi ugradjene teme
+        if (json == null) saveThemes();
     }
 
-    /** Upisuje teme i odmah primjenjuje boje (Dark + resursi); ekran se osvjezava pri zatvaranju. */
     private void saveThemes() {
         sp.edit()
                 .putString(Themes.KEY_THEMES, Themes.toJson(themes))
@@ -583,7 +550,6 @@ final class SettingsUi {
         dirty = true;
     }
 
-    /** Odmah oboji gornju traku aplikacije (ne ceka zatvaranje podesavanja). */
     private void applyToolbarNow() {
         try {
             if (!themed()) return;
@@ -607,7 +573,6 @@ final class SettingsUi {
             rb.setText(t.name);
             rb.setTextSize(16f);
             rb.setTextColor(text());
-            // kruzic mora pratiti boje teme uzivo (inace ostaje u bojama teme prozora iz trenutka otvaranja)
             rb.setButtonTintList(new android.content.res.ColorStateList(
                     new int[][] { { android.R.attr.state_checked }, {} }, new int[] { text(), dim() }));
             rb.setChecked(t.id.equals(selId));
@@ -621,7 +586,6 @@ final class SettingsUi {
             });
             row.addView(rb, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-            // mali pregled teme: pozadina, traka, naslov, link
             String[] keys = { "c_bg", "c_row", "c_holiday", "c_row_border" };
             for (String k : keys) {
                 View dot = new View(act);
@@ -650,7 +614,6 @@ final class SettingsUi {
             root.addView(row);
         }
 
-        // ikonice: nova tema | nova nasumicna tema (uvijek nova) | ponovo generisi izabranu nasumicnu temu
         LinearLayout icons = new LinearLayout(act);
         icons.setOrientation(LinearLayout.HORIZONTAL);
         icons.setGravity(Gravity.CENTER);
@@ -690,7 +653,6 @@ final class SettingsUi {
         root.addView(icons);
     }
 
-    /** Dugme sa ikonicom (boje iz teme, zadate izricito). Dugi pritisak pokazuje znacenje. */
     private View iconButton(int icon, final String hint, float alpha, final Runnable action) {
         ImageView v = new ImageView(act);
         v.setImageDrawable(Icons.get(icon, text(), dp(26)));
@@ -717,7 +679,6 @@ final class SettingsUi {
         return v;
     }
 
-    /** Pozadina sa stanjem pritiska (boje se zadaju izricito iz teme). */
     private android.graphics.drawable.Drawable pressBg(int radius, int normal, int pressed) {
         GradientDrawable n = new GradientDrawable();
         n.setColor(normal);
@@ -731,7 +692,6 @@ final class SettingsUi {
         return states;
     }
 
-    /** Pozadina prozora: boja teme (c_bg) i svjetliji obrub, da se vide ivice. */
     private GradientDrawable windowBg(int radius) {
         GradientDrawable g = new GradientDrawable();
         g.setColor(0xff000000 | bg());
@@ -740,7 +700,6 @@ final class SettingsUi {
         return g;
     }
 
-    /** Prikazuje dijalog sa bojama teme: pozadina i obrub prozora, boje naslova, poruke i dugmadi. */
     private AlertDialog showStyled(AlertDialog.Builder b) {
         AlertDialog d = b.create();
         d.getWindow().setBackgroundDrawable(windowBg(dp(8)));
@@ -759,7 +718,6 @@ final class SettingsUi {
         return d;
     }
 
-    /** Mali meni teme (ikonica + tekst). */
     private void showThemeMenu(final Themes.Theme t) {
         showIconMenu(t.name,
                 new int[] { Icons.EDIT_COLORS, Icons.RENAME, Icons.COPY, Icons.DELETE },
@@ -791,12 +749,10 @@ final class SettingsUi {
                         } }, true);
     }
 
-    /** Mali meni sa ikonicama: prozor je sirine sadrzaja, centriran, sa obrubom. */
     private void showIconMenu(String titleText, int[] icons, String[] captions, Runnable[] actions) {
         showIconMenu(titleText, icons, captions, actions, false);
     }
 
-    /** withExit = true dodaje na dno red "Одустани" koji samo zatvara meni. */
     private void showIconMenu(String titleText, int[] icons, String[] captions, Runnable[] actions,
             boolean withExit) {
         final Dialog d = new Dialog(act, themed() && !Dark.light()
@@ -805,7 +761,6 @@ final class SettingsUi {
 
         LinearLayout box = new LinearLayout(act);
         box.setOrientation(LinearLayout.VERTICAL);
-        // bocni razmak = debljina obruba, da redovi ne prelaze preko njega
         box.setPadding(dp(2), dp(6), dp(2), dp(6));
 
         TextView title = label(titleText, 14f, dim());
@@ -823,7 +778,6 @@ final class SettingsUi {
         d.setContentView(box);
         Window w = d.getWindow();
         w.setBackgroundDrawable(windowBg(dp(10)));
-        // sirina po sadrzaju (tacna sirina u pikselima zaobilazi minimalnu sirinu dijaloga iz teme)
         int maxW = act.getResources().getDisplayMetrics().widthPixels - dp(64);
         box.measure(View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
@@ -836,7 +790,6 @@ final class SettingsUi {
         menuRow(box, d, icon, caption, action, text());
     }
 
-    /** icon < 0 = bez ikonice (prazan razmak iste sirine); action == null = samo zatvara meni. */
     private void menuRow(LinearLayout box, final Dialog d, int icon, String caption, final Runnable action,
             int captionColor) {
         LinearLayout row = new LinearLayout(act);
@@ -852,7 +805,7 @@ final class SettingsUi {
             row.addView(new View(act), new LinearLayout.LayoutParams(dp(22), dp(22)));
         }
         TextView tv = label(caption, 16f, captionColor);
-        tv.setMaxWidth(dp(210)); // duzi tekst ide u dva reda, da prozor ne postane preSirok
+        tv.setMaxWidth(dp(210));
         tv.setPadding(dp(16), 0, 0, 0);
         row.addView(tv);
         row.setOnClickListener(new View.OnClickListener() {
@@ -865,9 +818,6 @@ final class SettingsUi {
         box.addView(row);
     }
 
-    // ------------------------------------------------------------------ kopiranje i ucitavanje tema (klipbord)
-
-    /** Stavlja zadate teme u klipbord kao JSON. */
     private void copyThemes(List<Themes.Theme> list) {
         try {
             ClipboardManager cm = (ClipboardManager) act.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -889,10 +839,6 @@ final class SettingsUi {
         return true;
     }
 
-    /**
-     * Dodaje teme iz klipborda kao nove (stare se ne diraju). Tema sa istim nazivom i istim bojama kao postojeca
-     * se preskace, a ako je naziv zauzet (sa drugim bojama) dobija sufiks " 2", " 3"...
-     */
     private void pasteThemes() {
         String text = null;
         try {
@@ -903,7 +849,6 @@ final class SettingsUi {
                 if (cs != null) text = cs.toString();
             }
         } catch (Throwable e) {
-            // ostaje null
         }
         List<Themes.Theme> in = Themes.parseImport(text);
         if (in == null) {
@@ -994,11 +939,6 @@ final class SettingsUi {
 
     private static final String KEY_LAST_HOLIDAY = "last_holiday_color";
 
-    /**
-     * Bira se boja pozadine (svijetla/tamna tema se odredjuje po njenoj svjetlini); sa holidays = true bira se
-     * zatim i boja praznika (naslovi i praznici, svjetlina se podesava samo radi kontrasta). Ostalo je nasumicno.
-     * Pocetne boje u biracu su posljednje koje je korisnik unio.
-     */
     private void pickBaseColor(final boolean holidays) {
         ColorPicker.show(act, sp.getInt(KEY_LAST_BASE, Dark.BG), bg(), text(), "Боја позадине",
                 new ColorPicker.Listener() {
@@ -1022,15 +962,10 @@ final class SettingsUi {
                 });
     }
 
-    /** Tema koju je napravio generator i nije preimenovana (naziv "Pridjev imenica"). */
     private boolean isGeneratedTheme(Themes.Theme t) {
         return NameGen.parse(t.name) >= 0;
     }
 
-    /**
-     * Pravi nasumicnu temu (kontrast je zagarantovan) i odmah je bira. replaceCurrent = true mijenja izabranu
-     * generisanu temu novom (bez pravljenja nove u listi), a false uvijek dodaje novu.
-     */
     private void addRandomTheme(int mode, Integer base, Integer holidayColor, boolean replaceCurrent) {
         RandomTheme.Result res = RandomTheme.generate(new java.util.Random(), mode, base, holidayColor);
         if (!replaceCurrent) {
@@ -1062,11 +997,6 @@ final class SettingsUi {
         build();
     }
 
-    /**
-     * Ponovo generise izabranu generisanu temu (bez nove teme). Rod u nazivu govori kako je nastala:
-     * muski = nasumicna svijetla/tamna (po svjetlini pozadine), zenski = iz boje pozadine,
-     * srednji = iz boje pozadine i boje praznika (obje se uzimaju iz same teme).
-     */
     private void regenerateRandomTheme() {
         Themes.Theme cur = Themes.find(themes, selId);
         int gender = NameGen.parse(cur.name);
@@ -1117,17 +1047,12 @@ final class SettingsUi {
                 );
     }
 
-    // ------------------------------------------------------------------ uredjivanje boja teme
-
-    // ------------------------------------------------------------------ vracanje boja korak po korak
-
     private static final int UNDO_MAX = 300;
 
     private static String undoKey(Themes.Theme t) {
         return "undo_" + t.id;
     }
 
-    /** Koraci vracanja teme: {kljuc boje, stara vrijednost}; zadnji je prvi na redu. Cuvaju se trajno. */
     private List<String[]> loadUndo(Themes.Theme t) {
         List<String[]> out = new java.util.ArrayList<String[]>();
         String json = sp.getString(undoKey(t), null);
@@ -1165,7 +1090,6 @@ final class SettingsUi {
         sp.edit().remove(undoKey(t)).apply();
     }
 
-    /** Pamti staru vrijednost boje prije izmjene; uzastopne izmjene iste boje se spajaju u jedan korak. */
     private void pushUndo(Themes.Theme t, String key, String oldHex) {
         if (key.equals(lastUndoKey)) return;
         lastUndoKey = key;
@@ -1176,7 +1100,6 @@ final class SettingsUi {
         if (undoRefresh != null) undoRefresh.run();
     }
 
-    /** Vraca jednu boju unazad; false ako nema sta da se vrati. */
     private boolean undoColor(Themes.Theme t) {
         List<String[]> l = loadUndo(t);
         if (l.isEmpty()) return false;
@@ -1202,16 +1125,14 @@ final class SettingsUi {
                 .setTitle("Боје: " + t.name)
                 .setView(s)
                 .setPositiveButton("Готово", null)
-                .setNeutralButton(" ", null) // tekst se ispod zamjenjuje ikonicom (prazan tekst bi sakrio dugme)
+                .setNeutralButton(" ", null)
                 .create();
-        // pozadina editora boja je c_bg, a slova su c_text (naslov i dugmad se boje izricito)
         d.getWindow().setBackgroundDrawable(windowBg(dp(8)));
         d.show();
         int tid = act.getResources().getIdentifier("alertTitle", "id", "android");
         View title = tid != 0 ? d.findViewById(tid) : null;
         if (title instanceof TextView) ((TextView) title).setTextColor(text());
         d.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(text());
-        // dugme "vrati": ikonica, vraca jednu boju unazad (do boja pri pravljenju teme ili prvom uredjivanju)
         final Button undoBtn = d.getButton(AlertDialog.BUTTON_NEUTRAL);
         undoBtn.setText("");
         undoBtn.setCompoundDrawablesWithIntrinsicBounds(Icons.get(Icons.UNDO, text(), dp(22)), null, null, null);
@@ -1225,7 +1146,6 @@ final class SettingsUi {
             }
         };
         undoRefresh.run();
-        // "Vrati" ne zatvara dijalog
         undoBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -1245,7 +1165,7 @@ final class SettingsUi {
             public void onDismiss(DialogInterface dlg) {
                 undoRefresh = null;
                 lastUndoKey = null;
-                build(); // osvjezi pregled boja i boje ovog ekrana
+                build();
             }
         });
     }
@@ -1333,8 +1253,6 @@ final class SettingsUi {
         row.addView(et, new LinearLayout.LayoutParams(dp(100), LinearLayout.LayoutParams.WRAP_CONTENT));
         return row;
     }
-
-    // ------------------------------------------------------------------ pomocno
 
     private interface TextCb {
         void onText(String s);
