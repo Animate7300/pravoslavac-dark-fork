@@ -75,6 +75,55 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
     static boolean start;
     static boolean inSplash;
 
+// ========== PRILAGOĐENI FONT - KEŠ ==========
+private static android.graphics.Typeface customTypefaceRegular;
+private static android.graphics.Typeface customTypefaceBold;
+private static String fontBase64Regular;
+private static String fontBase64Bold;
+
+/** Učitava Typeface iz asseta tvog modula */
+private static android.graphics.Typeface getCustomTypeface(Context appContext, boolean isBold) {
+    if (isBold && customTypefaceBold != null) return customTypefaceBold;
+    if (!isBold && customTypefaceRegular != null) return customTypefaceRegular;
+    try {
+        Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark", 
+            Context.CONTEXT_IGNORE_SECURITY);
+        String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
+        android.graphics.Typeface tf = android.graphics.Typeface.createFromAsset(
+            moduleCtx.getAssets(), fontName);
+        if (isBold) customTypefaceBold = tf;
+        else customTypefaceRegular = tf;
+        return tf;
+    } catch (Exception e) {
+        XposedBridge.log("PravoslavacDark: Greška pri učitavanju fonta: " + e.getMessage());
+        return null;
+    }
+}
+
+/** Učitava font kao Base64 string za WebView CSS */
+private static String getFontBase64(Context appContext, boolean isBold) {
+    if (isBold && fontBase64Bold != null) return fontBase64Bold;
+    if (!isBold && fontBase64Regular != null) return fontBase64Regular;
+    try {
+        Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark", 
+            Context.CONTEXT_IGNORE_SECURITY);
+        String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
+        java.io.InputStream is = moduleCtx.getAssets().open(fontName);
+        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        byte[] data = new byte[8192];
+        int read;
+        while ((read = is.read(data)) != -1) buffer.write(data, 0, read);
+        is.close();
+        String b64 = android.util.Base64.encodeToString(buffer.toByteArray(), android.util.Base64.NO_WRAP);
+        if (isBold) fontBase64Bold = b64;
+        else fontBase64Regular = b64;
+        return b64;
+    } catch (Exception e) {
+        XposedBridge.log("PravoslavacDark: Greška pri čitanju fonta za Base64: " + e.getMessage());
+        return "";
+    }
+}
+
     // ------------------------------------------------------------------ load package
 
     @Override
