@@ -23,7 +23,8 @@ final class Assets {
                 + "input,select,textarea,button{background:" + hex(Dark.SURFACE) + ";color:" + hex(Dark.WEB_TEXT) + ";border-color:" + hex(Dark.WEB_LINE) + "}\n"
                 + "[data-dkb][data-dkb][data-dkb],[data-dkb][data-dkb][data-dkb]:link,[data-dkb][data-dkb][data-dkb]:visited,[data-dkb][data-dkb][data-dkb]:hover,[data-dkb][data-dkb][data-dkb]:active,[data-dkb][data-dkb][data-dkb]:focus{background:" + hex(Dark.BTN_BG) + " !important;background-image:none !important;color:" + hex(Dark.BTN_TEXT) + " !important;border-color:" + hex(Dark.BTN_BORDER) + " !important;outline-color:" + hex(Dark.BTN_BORDER) + " !important;text-shadow:none !important}\n"
                 + "[data-dkb][data-dkb] *{color:" + hex(Dark.BTN_TEXT) + " !important}\n"
-                + "::-webkit-scrollbar-track{-webkit-box-shadow:inset 0 0 3px rgba(0,0,0," + (Dark.light() ? ".25" : ".8") + ")}\n";
+                + "::-webkit-scrollbar-track{-webkit-box-shadow:inset 0 0 3px rgba(0,0,0," + (Dark.light() ? ".25" : ".8") + ")}\n"
+                + Fonts.webCss();
     }
 
     /** Pretvara tekst u \\uXXXX znakove (ASCII), da se moze ubaciti u stranicu bilo kojeg kodiranja. */
@@ -71,8 +72,11 @@ final class Assets {
 
     static String darkJs() {
         String css = darkCss().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n");
+        String markFont = Fonts.cssFamily("c_web_mark");   // font oznaka verzija (zelene oznake) ili null
         return DARK_JS.replace("@NAVCORE@", navCore()).replace("@TEXT@", hex(Dark.WEB_TEXT)).replace("@TITLE@", hex(Dark.TITLE)).replace("@MARK@", hex(Dark.WEB_MARK))
                 .replace("@BG@", hex(Dark.WEB_BG)).replace("@LIGHT@", Dark.light() ? "true" : "false")
+                .replace("@MARKFONT@", markFont == null ? "" : markFont)
+                .replace("@MARKZOOM@", Prefs.fontSize("c_web_mark") == 100 ? "" : Prefs.fontSize("c_web_mark") + "%")
                 .replace("@CSS@", css);
     }
 
@@ -80,7 +84,7 @@ final class Assets {
             "(function(){\n"
                     + "  if(window.__dkRun){window.__dkRun(document.documentElement);return;}\n"
                     + "  try{var st=document.getElementById('__dkcss');if(!st){st=document.createElement('style');st.id='__dkcss';(document.head||document.documentElement).appendChild(st);}st.textContent='@CSS@';}catch(x){}\n"
-                    + "  var LIGHT=@LIGHT@;\n"
+                    + "  var LIGHT=@LIGHT@;var MARKFONT='@MARKFONT@';var MARKZOOM='@MARKZOOM@';\n"
                     + "  var SKIP={SCRIPT:1,STYLE:1,IMG:1,SVG:1,LINK:1,META:1,HEAD:1,TITLE:1,BR:1,HR:1,CANVAS:1,VIDEO:1,AUDIO:1,IFRAME:1,OBJECT:1,EMBED:1,NOSCRIPT:1};\n"
                     + "  function parse(c){var m=/rgba?\\(([^)]+)\\)/.exec(c);if(!m)return null;var a=m[1].split(',');return{r:+a[0],g:+a[1],b:+a[2],a:a.length>3?+a[3]:1};}\n"
                     + "  function lum(c){return(0.299*c.r+0.587*c.g+0.114*c.b)/255;}\n"
@@ -111,6 +115,7 @@ final class Assets {
                     + "    if((tn==='A'||tn==='BUTTON'||tn==='INPUT'||tn==='SPAN'||tn==='DIV')&&isBtn(e)){mark(e);return;}\n"
                     + "    var cs=getComputedStyle(e),c=parse(cs.color),b=parse(cs.backgroundColor),v;\n"
                     + "    if(c&&(v=fgMap(c)))e.style.setProperty('color',v,'important');\n"
+                    + "    if(c&&(MARKFONT||MARKZOOM)&&lum(c)<0.5){var h2=toHsl(c.r,c.g,c.b);if(h2[1]>=0.2&&h2[0]>=75&&h2[0]<=165){if(MARKFONT)e.style.setProperty('font-family',MARKFONT,'important');if(MARKZOOM)e.style.setProperty('zoom',MARKZOOM,'important');}}\n"
                     + "    if(e===document.body||e===document.documentElement){e.style.setProperty('background-color','@BG@','important');e.style.setProperty('background-image','none','important');}\n"
                     + "    else if(b&&(v=bgMap(b)))e.style.setProperty('background-color',v,'important');\n"
                     + "    var bi=cs.backgroundImage;\n"

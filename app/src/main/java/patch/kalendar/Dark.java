@@ -337,18 +337,61 @@ final class Dark {
         return s.contains("црквени календар") && s.contains("годин");
     }
 
-    /** Boja teksta za TextView u nedeljnoj traci / traci mjeseca / naslovu kalendara, ili 0 ako nije ni u jednom. */
-    static int roleColor(View tv) {
+    /** Kljuc teksta (iz Colors) za TextView u nedeljnoj traci / traci mjeseca / naslovu kalendara / gornjoj traci, ili null. */
+    static String roleKey(View tv) {
         View p = tv;
         for (int i = 0; i < 5 && p != null; i++) {
-            if (i == 0 && p.getTag(TAG_TITLE) != null) return CAL_TITLE_TEXT;
-            if (p.getTag(TAG_SUN) != null) return SUN_TEXT;
-            if (p.getTag(TAG_BAR) != null) return TOOLBAR_TEXT;
-            if (isMonthBarId(p)) return MONTH_TEXT;
+            if (i == 0 && p.getTag(TAG_TITLE) != null) return "c_cal_title_text";
+            if (p.getTag(TAG_SUN) != null) return "c_sun_text";
+            if (p.getTag(TAG_BAR) != null) return "c_toolbar_text";
+            if (isMonthBarId(p)) return "c_month_text";
             Object par = p.getParent();
             p = par instanceof View ? (View) par : null;
         }
-        return 0;
+        return null;
+    }
+
+    /** Boja teksta za kljuc iz roleKey(), ili 0. */
+    static int colorOfKey(String k) {
+        if (k == null) return 0;
+        switch (k) {
+            case "c_cal_title_text": return CAL_TITLE_TEXT;
+            case "c_sun_text": return SUN_TEXT;
+            case "c_toolbar_text": return TOOLBAR_TEXT;
+            case "c_month_text": return MONTH_TEXT;
+            default: return 0;
+        }
+    }
+
+    /** Boja teksta za TextView u nedeljnoj traci / traci mjeseca / naslovu kalendara, ili 0 ako nije ni u jednom. */
+    static int roleColor(View tv) {
+        return colorOfKey(roleKey(tv));
+    }
+
+    /** TextView je unutar TabLayout-a (slova na tabovima). */
+    static boolean inTabs(View tv) {
+        Object p = tv.getParent();
+        for (int i = 0; i < 4 && p instanceof View; i++) {
+            if (p.getClass().getName().endsWith("TabLayout")) return true;
+            p = ((View) p).getParent();
+        }
+        return false;
+    }
+
+    /**
+     * Kljuc teksta za izvornu (ili vec temu) boju teksta u kalendaru: obican tamni tekst -> \"Текст календара\",
+     * tamnocrveni -> \"Празници и постови\" / \"Текст наслова\" (isto razlikovanje kao u mapFg), ili null.
+     */
+    static String fgKey(int c) {
+        int rgb = c & 0xffffff;
+        if (rgb == (TEXT & 0xffffff)) return "c_text";            // resurs \"textcolormain\" je vec zamijenjen
+        if (rgb == (HOLIDAY & 0xffffff)) return "c_holiday";
+        if (rgb == (TITLE & 0xffffff)) return "c_title";
+        if (lum(c) >= 0.5f) return null;
+        float[] hsl = toHsl(c);
+        if (hsl[1] < 0.2f) return "c_text";
+        if (hsl[1] >= 0.6f && (hsl[0] <= 15f || hsl[0] >= 345f)) return hsl[2] >= 0.36f ? "c_holiday" : "c_title";
+        return null;
     }
 
     /** Svi ForegroundColorSpan-ovi u tekstu dobijaju datu boju (tekst traka ima jednu boju). */
@@ -373,17 +416,18 @@ final class Dark {
     }
 
     /** Postavlja boju teksta (i spanova) svim TextView-ovima unutar v (ukljucujuci v). */
-    private static void recolorTexts(View v, int color) {
+    private static void recolorTexts(View v, int color, String fontKey) {
         if (v instanceof TextView) {
             TextView tv = (TextView) v;
             if (tv.getCurrentTextColor() != color) tv.setTextColor(color);
             CharSequence t = tv.getText();
             CharSequence f = spansToColor(t, color);
             if (f != t) tv.setText(f);
+            Fonts.apply(tv, fontKey);
         }
         if (v instanceof ViewGroup) {
             ViewGroup g = (ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) recolorTexts(g.getChildAt(i), color);
+            for (int i = 0; i < g.getChildCount(); i++) recolorTexts(g.getChildAt(i), color, fontKey);
         }
     }
 
@@ -395,7 +439,7 @@ final class Dark {
         if (!(d instanceof ColorDrawable) || ((ColorDrawable) d).getColor() != SUN_BG) {
             v.setBackground(new ColorDrawable(SUN_BG));
         }
-        if (first) recolorTexts(v, SUN_TEXT);
+        if (first) recolorTexts(v, SUN_TEXT, "c_sun_text");
     }
 
     /**
@@ -676,6 +720,17 @@ final class Dark {
         return 0;
     }
 
+    /** Kljuc teksta (iz Colors) za tekst bocnog menija: isto razlikovanje kao menuColor(), ili null. */
+    static String menuKey(int c, boolean stable) {
+        String sub = stable ? "c_sub_text" : "c_sub_text1";
+        if ((c & 0xffffff) == (TEXT & 0xffffff)) return sub;
+        if (lum(c) >= 0.5f) return null;
+        float[] hsl = toHsl(c);
+        if (hsl[1] < 0.2f) return sub;
+        if (hsl[1] >= 0.6f && (hsl[0] <= 15f || hsl[0] >= 345f)) return hsl[2] >= 0.36f ? sub : "c_menu_text";
+        return null;
+    }
+
     /** ListView sa crvenim razdjelnikom = lista molitvi i knjiga. */
     static final int TAG_BOOKLIST = 0x7e0c0a04;
 
@@ -688,6 +743,7 @@ final class Dark {
                 int cur = tv.getCurrentTextColor();
                 boolean ours = tv.getTag(TAG_ORIG) instanceof Integer || (cur & 0xffffff) == (TEXT & 0xffffff)
                         || (cur & 0xffffff) == (HOLIDAY & 0xffffff) || (cur & 0xffffff) == (TITLE & 0xffffff);
+                if (ours) Fonts.apply(tv, "c_web_text");
                 if (ours && cur != WEB_TEXT) {
                     applying = true;
                     try {
@@ -720,6 +776,7 @@ final class Dark {
                 int orig = o instanceof Integer ? ((Integer) o).intValue() : tv.getTextColors().getDefaultColor();
                 if (!(o instanceof Integer)) tv.setTag(TAG_ORIG, Integer.valueOf(orig));   // da drugi prolaz vidi izvornu boju
                 int mc = menuColor(orig, stable);
+                Fonts.apply(tv, menuKey(orig, stable));
                 if (mc != 0 && tv.getCurrentTextColor() != mc) {
                     applying = true;
                     try {
@@ -871,7 +928,7 @@ final class Dark {
             } catch (Throwable ignore) {
                 // nema te metode: tekst se boji preko TextView-ova unutar trake
             }
-            recolorTexts(v, TOOLBAR_TEXT);
+            recolorTexts(v, TOOLBAR_TEXT, "c_toolbar_text");
             v.invalidate();
             Object par2 = v.getParent();
             if (par2 instanceof View) ((View) par2).invalidate();
@@ -972,9 +1029,11 @@ final class Dark {
         styleToolbar(v);
         if (v instanceof TextView) {
             TextView tv = (TextView) v;
-            int role = roleColor(tv);
+            String rk = roleKey(tv);
+            int role = colorOfKey(rk);
             if (role == 0 && isCalTitleText(tv.getText())) {
                 styleTitle(tv);
+                rk = "c_cal_title_text";
                 role = CAL_TITLE_TEXT;
             }
             if (role != 0) {
@@ -982,9 +1041,14 @@ final class Dark {
                 CharSequence t = tv.getText();
                 CharSequence f = spansToColor(t, role);
                 if (f != t) tv.setText(f);
+                Fonts.apply(tv, rk);
                 return;
             }
             ColorStateList cur = tv.getTextColors();
+            // font: slova na tabovima, inace prema (izvornoj) boji teksta; vec dodijeljen font se samo osvjezi
+            String fk = inTabs(tv) ? "c_tab_text" : fgKey(cur.getDefaultColor());
+            if (fk != null) Fonts.apply(tv, fk);
+            else Fonts.refresh(tv);
             ColorStateList mapped = mapCsl(cur);
             if (mapped != cur) {
                 tv.setTag(TAG_ORIG, Integer.valueOf(cur.getDefaultColor()));   // izvorna boja (za tekst menija)
@@ -1086,12 +1150,17 @@ final class Dark {
 
     /** Tekst koji se postavlja u TextView: trake kalendara (nedelja, mesec, naslov) imaju svoje boje, ostalo opste. */
     static CharSequence fixText(TextView tv, CharSequence cs) {
-        int role = roleColor(tv);
+        String rk = roleKey(tv);
+        int role = colorOfKey(rk);
         if (role == 0 && isCalTitleText(cs)) {
             styleTitle(tv);
+            rk = "c_cal_title_text";
             role = CAL_TITLE_TEXT;
         }
-        if (role != 0) return spansToColor(cs, role);
+        if (role != 0) {
+            Fonts.apply(tv, rk);
+            return spansToColor(cs, role);
+        }
         return fixSpans(cs);
     }
 

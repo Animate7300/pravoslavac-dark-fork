@@ -58,6 +58,23 @@ final class Colors {
             { "Линије и разделници", "c_tab_line" },
     };
 
+    /** Boja je u grupi "Текст" (tekstovi za koje se bira i font). */
+    static boolean isText(String key) {
+        boolean in = false;
+        for (String[] c : ALL) {
+            for (String[] g : GROUPS) {
+                if (g[1].equals(c[0])) in = "c_text".equals(g[1]);
+            }
+            if (c[0].equals(key)) return in;
+        }
+        return false;
+    }
+
+    /** Font se bira za sve tekstove osim posjecenih linkova (preglednik ne dozvoljava poseban font za :visited). */
+    static boolean hasFont(String key) {
+        return isText(key) && !"c_web_visited".equals(key);
+    }
+
     /** Naslov grupe koja pocinje ovom bojom, ili null. */
     static String groupBefore(String key) {
         for (String[] g : GROUPS) if (g[1].equals(key)) return g[0];

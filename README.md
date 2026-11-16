@@ -1,4 +1,4 @@
-# Pravoslavac Dark fork (LSPosed modul)
+# Pravoslavac Dark (LSPosed modul)
 
 LSPosed (Xposed) modul za Android aplikacije **Pravoslavac** (`com.pravoslavac`) i **Житије светих**
 (`com.zitijesvetih`). Za obe aplikacije isti je skup opcija, tema i podešavanja. Dodaje tamnu temu sa
@@ -15,12 +15,32 @@ i prikazu teksta.
   hex koda), preimenovanje, brisanje, kopiranje i neograničeno vraćanje izmena (undo).
 - **Nasumične teme** (svetle ili tamne) sa zagarantovanim kontrastom slova i pozadine (WCAG omjer
   kontrasta), uključujući teme generisane iz vlastite boje pozadine i boje praznika.
+- **Fontovi**: poseban tab; za svaki tekst ćirilični Google font i veličina. Fontovi nisu u aplikaciji, preuzimaju se
+  po izboru (vidi odeljak *Fontovi*).
 - **Prenos tema** preko klipborda (kopiraj sve / učitaj kopirane).
 - **Preskakanje uvodnog ekrana** (splash).
 - **Otvaranje kalendara pri pokretanju** (tekući mesec) umesto žitija za tekući dan.
 - **Tekst poravnat levo** umesto obostranog (justified) – u WebView sadržaju i u nativnim `TextView` poljima.
 - Podešavanja su **unutar same aplikacije** (Православац, odnosno Житије светих); modul nema vlastitu ikonu u launcheru.
   Svaka aplikacija ima svoja nezavisna podešavanja i teme.
+
+## Fontovi
+
+Poseban tab **Фонтови** u Podešavanjima (pored „Опције“ i „Теме“). Fontovi ne zavise od teme boja.
+
+Pravoslavac nema dozvolu za internet, pa fontove preuzima sam modul (on ima `INTERNET`, koristi se samo pri pritisku
+na „Preuzmi“):
+
+1. Otvorite ekran modula: u LSPosed-u **Moduli → Pravoslavac Dark → podešavanja modula**, ili u Pravoslavcu
+   Podešavanja → Фонтови → „＋ Преузми фонтове…“.
+2. Pritisnite **Preuzmi** uz željeni font. Spisak sadrži samo fontove sa ćirilicom (ugrađen je kraći spisak; dugme
+   „Osvježi spisak fontova sa Googlea“ povlači sve, a ima i pretragu). Font bez srpskih slova se odbacuje.
+3. U tabu „Фонтови“ izaberite font i veličinu (50–200 %) za svaki tekst posebno, ili odjednom za ceo kalendar
+   (prvi red „Цео календар“). Izmene se vide kad zatvorite podešavanja.
+
+Napomene: font se primenjuje na ceo tekst datog tipa (slova u tekstu koja imaju drugu boju preko `ForegroundColorSpan`
+zadržavaju font tog teksta); „Посећени линкови“ nemaju poseban font ni veličinu (preglednik to ne dozvoljava),
+koriste podešavanje linkova. Veličina „Листе књига и молитви“ menja zoom teksta cele stranice.
 
 ## Zahtevi
 
