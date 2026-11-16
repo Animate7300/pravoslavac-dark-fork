@@ -25,24 +25,15 @@ import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_InitPackageResources;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-/**
- * Xposed/LSPosed modul za aplikacije "Pravoslavac" i "Zitije svetih": pocetni ekran je kalendar + tamna tema.
- * Obje aplikacije dijele isti kod, razlikuju se samo paket i obfuskovani nazivi dvije metode (vidi select()).
- */
 public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResources {
 
-    /** Podrzane aplikacije (ista lista je u res/values/arrays.xml, scope za LSPosed). */
     static final String PKG_PRAVOSLAVAC = "com.pravoslavac";
     static final String PKG_ZITIJE = "com.zitijesvetih";
 
-    /** Paket aplikacije u cijem je procesu modul ucitan (postavlja select()). */
     static String PKG = PKG_PRAVOSLAVAC;
-    /** Metoda fragmenta kalendara poslije koje se otvara tekuci mjesec (obfuskovano ime, zavisi od aplikacije). */
     static String CAL_INIT = "n0";
-    /** Metoda fragmenta kalendara (mjesec, godina) koja prikazuje mjesec u kalendaru (obfuskovano ime). */
     static String CAL_JUMP = "Y";
 
-    /** Bira podrzanu aplikaciju po imenu paketa; vraca false ako paket nije podrzan. */
     static boolean select(String pkg) {
         if (PKG_PRAVOSLAVAC.equals(pkg)) {
             PKG = pkg;
@@ -59,12 +50,9 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
         return false;
     }
 
-    /** Boja krem reda u kalendaru koju aplikacija postavlja kodom (svaki drugi red). */
     static final int LIGHT_ROW = 0xfffbf7ea;
-    /** Crvena boja praznika i postova koju aplikacija postavlja kodom (zamjena: Dark.HOLIDAY). */
     static final int DARK_RED = 0xffcc0000;
 
-    /** Dubina ugnijezdenih LayoutInflater.inflate poziva (po niti). */
     static final ThreadLocal<int[]> DEPTH = new ThreadLocal<int[]>() {
         @Override
         protected int[] initialValue() {
@@ -75,56 +63,52 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
     static boolean start;
     static boolean inSplash;
 
-// ========== PRILAGOĐENI FONT - KEŠ ==========
-private static android.graphics.Typeface customTypefaceRegular;
-private static android.graphics.Typeface customTypefaceBold;
-private static String fontBase64Regular;
-private static String fontBase64Bold;
+    // ========== PRILAGOĐENI FONT - KEŠ ==========
+    private static android.graphics.Typeface customTypefaceRegular;
+    private static android.graphics.Typeface customTypefaceBold;
+    private static String fontBase64Regular;
+    private static String fontBase64Bold;
 
-/** Učitava Typeface iz asseta tvog modula */
-private static android.graphics.Typeface getCustomTypeface(Context appContext, boolean isBold) {
-    if (isBold && customTypefaceBold != null) return customTypefaceBold;
-    if (!isBold && customTypefaceRegular != null) return customTypefaceRegular;
-    try {
-        Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark", 
-            Context.CONTEXT_IGNORE_SECURITY);
-        String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
-        android.graphics.Typeface tf = android.graphics.Typeface.createFromAsset(
-            moduleCtx.getAssets(), fontName);
-        if (isBold) customTypefaceBold = tf;
-        else customTypefaceRegular = tf;
-        return tf;
-    } catch (Exception e) {
-        XposedBridge.log("PravoslavacDark: Greška pri učitavanju fonta: " + e.getMessage());
-        return null;
+    private static android.graphics.Typeface getCustomTypeface(Context appContext, boolean isBold) {
+        if (isBold && customTypefaceBold != null) return customTypefaceBold;
+        if (!isBold && customTypefaceRegular != null) return customTypefaceRegular;
+        try {
+            Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark",
+                    Context.CONTEXT_IGNORE_SECURITY);
+            String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
+            android.graphics.Typeface tf = android.graphics.Typeface.createFromAsset(
+                    moduleCtx.getAssets(), fontName);
+            if (isBold) customTypefaceBold = tf;
+            else customTypefaceRegular = tf;
+            return tf;
+        } catch (Exception e) {
+            XposedBridge.log("PravoslavacDark: Greška pri učitavanju fonta: " + e.getMessage());
+            return null;
+        }
     }
-}
 
-/** Učitava font kao Base64 string za WebView CSS */
-private static String getFontBase64(Context appContext, boolean isBold) {
-    if (isBold && fontBase64Bold != null) return fontBase64Bold;
-    if (!isBold && fontBase64Regular != null) return fontBase64Regular;
-    try {
-        Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark", 
-            Context.CONTEXT_IGNORE_SECURITY);
-        String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
-        java.io.InputStream is = moduleCtx.getAssets().open(fontName);
-        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
-        byte[] data = new byte[8192];
-        int read;
-        while ((read = is.read(data)) != -1) buffer.write(data, 0, read);
-        is.close();
-        String b64 = android.util.Base64.encodeToString(buffer.toByteArray(), android.util.Base64.NO_WRAP);
-        if (isBold) fontBase64Bold = b64;
-        else fontBase64Regular = b64;
-        return b64;
-    } catch (Exception e) {
-        XposedBridge.log("PravoslavacDark: Greška pri čitanju fonta za Base64: " + e.getMessage());
-        return "";
+    private static String getFontBase64(Context appContext, boolean isBold) {
+        if (isBold && fontBase64Bold != null) return fontBase64Bold;
+        if (!isBold && fontBase64Regular != null) return fontBase64Regular;
+        try {
+            Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark",
+                    Context.CONTEXT_IGNORE_SECURITY);
+            String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
+            InputStream is = moduleCtx.getAssets().open(fontName);
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[8192];
+            int read;
+            while ((read = is.read(data)) != -1) buffer.write(data, 0, read);
+            is.close();
+            String b64 = android.util.Base64.encodeToString(buffer.toByteArray(), android.util.Base64.NO_WRAP);
+            if (isBold) fontBase64Bold = b64;
+            else fontBase64Regular = b64;
+            return b64;
+        } catch (Exception e) {
+            XposedBridge.log("PravoslavacDark: Greška pri čitanju fonta za Base64: " + e.getMessage());
+            return "";
+        }
     }
-}
-
-    // ------------------------------------------------------------------ load package
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
@@ -133,11 +117,9 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         Prefs.init(lpparam.appInfo != null ? lpparam.appInfo.dataDir : null);
         Dark.reload();
 
-        // Splash: ne prikazuj pocetni ekran, odmah idi na kalendar.
         hook(PKG + ".Splashscreen", cl, "onCreate", "android.os.Bundle", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
-                // Pri pokretanju otvori kalendar (tekuci mjesec) umjesto zitija za taj dan.
                 start = Prefs.openCalendar();
                 inSplash = Prefs.skipSplash();
             }
@@ -145,7 +127,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 inSplash = false;
-                // Ako se uvodni ekran prikazuje, a tamna tema je ukljucena: crna pozadina umjesto bijele.
                 if (Prefs.dark() && !Prefs.skipSplash()) {
                     try {
                         Activity a = (Activity) param.thisObject;
@@ -163,7 +144,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             }
         });
 
-        // Prvi put otvori tekuci mjesec/godinu u kalendaru.
         hook(PKG + ".SlidingTabsPravoslavniCrkveniKalendar_i_raspored_citanja_Fragment", cl, CAL_INIT,
                 new XC_MethodHook() {
                     @Override
@@ -196,14 +176,11 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             }
         });
 
-        // WebView: sakrij stranicu dok se ne primijene tema i poravnanje (nema bljeska originalnog izgleda).
         hook("android.webkit.WebViewClient", cl, "onPageStarted", "android.webkit.WebView", "java.lang.String",
                 "android.graphics.Bitmap", STARTED);
         hook("android.webkit.WebViewClient", cl, "onPageFinished", "android.webkit.WebView", "java.lang.String",
                 FINISHED);
 
-        // Aplikacija moze imati vlastiti WebViewClient koji preklapa ove metode (pa hook na osnovnoj klasi
-        // nikad ne bi bio pozvan): zakaci se i na stvarnu klasu klijenta.
         hook("android.webkit.WebView", cl, "setWebViewClient", "android.webkit.WebViewClient", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
@@ -221,7 +198,7 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                 protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         WebView wv = (WebView) param.thisObject;
-                        if (Prefs.dark() || Prefs.left()) wv.getSettings().setJavaScriptEnabled(true);
+                        if (Prefs.dark() || Prefs.left() || Prefs.useCustomFont()) wv.getSettings().setJavaScriptEnabled(true);
                         if (Prefs.dark()) wv.setBackgroundColor(Dark.WEB_BG);
                         Object a0 = param.args.length > 0 ? param.args[0] : null;
                         boolean js = a0 instanceof String && ((String) a0).startsWith("javascript:");
@@ -239,7 +216,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             XposedBridge.log(t);
         }
 
-        // WebView je tamne pozadine cim se pojavi na ekranu (a ne tek kad pocne ucitavanje stranice).
         hook("android.webkit.WebView", cl, "onAttachedToWindow", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
@@ -254,10 +230,8 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         hookTheme(cl);
         hookInflater(cl);
 
-        // Pozadine postavljene preko resursa (npr. tablerow_border_neparni_dani).
         hook("android.view.View", cl, "setBackgroundResource", int.class, new OddRowHook());
 
-        // Pozadine koje aplikacija postavlja kodom (parseColor).
         hook("android.view.View", cl, "setBackgroundColor", int.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
@@ -267,7 +241,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                     if (c == LIGHT_ROW) {
                         param.args[0] = Integer.valueOf(Dark.ROW);
                     } else if (Dark.isSunBg(c)) {
-                        // nedeljna traka: svoja boja pozadine i teksta
                         Dark.markSunday((View) param.thisObject);
                         param.setResult(null);
                     }
@@ -277,7 +250,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             }
         });
 
-        // Redovi lista poslije izrade (kad se zna u kojoj su listi): bocni meni (meni / podmeni) i liste molitvi i knjiga
         hook("android.widget.AbsListView", cl, "obtainView", int.class, boolean[].class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
@@ -298,7 +270,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             }
         });
 
-        // Slike u traci mjeseca (strelice, ikonica kalendara) koje aplikacija postavlja kodom
         XC_MethodHook imgHook = new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
@@ -313,14 +284,12 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         hook("android.widget.ImageView", cl, "setImageDrawable", android.graphics.drawable.Drawable.class, imgHook);
         hook("android.widget.ImageView", cl, "setImageResource", int.class, imgHook);
 
-        // Boje teksta koje aplikacija postavlja kodom (parseColor).
         hook("android.widget.TextView", cl, "setTextColor", int.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (!Prefs.dark()) return;
                 try {
                     if (Dark.applying) return;
-                    // nedeljna traka, mjesec i godina, naslov kalendara: boja teksta iz teme, kako god je app postavi
                     int role = Dark.roleColor((View) param.thisObject);
                     if (role != 0) {
                         param.args[0] = Integer.valueOf(role);
@@ -341,30 +310,44 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         hookCss(cl);
         hookSettingsMenu(cl);
 
-        // Lijevo poravnanje: ugasi justifikaciju u nativnim TextView-ovima (Android 8+).
         hook("android.widget.TextView", cl, "setJustificationMode", int.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (Prefs.left()) param.args[0] = Integer.valueOf(0);
             }
         });
+
+        // ========== PRILAGOĐENI FONT - NATIVNI TEXTVIEW ==========
+        hook("android.widget.TextView", cl, "setTypeface", android.graphics.Typeface.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                if (!Prefs.useCustomFont()) return;
+                try {
+                    android.widget.TextView tv = (android.widget.TextView) param.thisObject;
+                    android.graphics.Typeface original = (android.graphics.Typeface) param.args[0];
+                    int style = original != null ? original.getStyle() : android.graphics.Typeface.NORMAL;
+                    boolean isBold = (style & android.graphics.Typeface.BOLD) != 0;
+                    android.graphics.Typeface custom = getCustomTypeface(tv.getContext(), isBold);
+                    if (custom != null) {
+                        param.args[0] = android.graphics.Typeface.create(custom, style);
+                    }
+                } catch (Throwable t) {
+                    XposedBridge.log(t);
+                }
+            }
+        });
     }
 
-    private static final int TAG_HIDE = 0x7e0c0b01;   // rezervni tajmer koji vraca providnost
-    private static final int TAG_GEN = 0x7e0c0b02;    // redni broj ucitavanja stranice u ovom WebView-u
+    private static final int TAG_HIDE = 0x7e0c0b01;
+    private static final int TAG_GEN = 0x7e0c0b02;
 
     static int generation(WebView wv) {
         Object g = wv.getTag(TAG_GEN);
         return g instanceof Integer ? ((Integer) g).intValue() : 0;
     }
 
-    /**
-     * Skriva WebView (providno) dok se ne primijene tema/poravnanje. Rezervni tajmer vraca prikaz poslije 1.5 s, ali se
-     * pri svakom novom ucitavanju stari tajmer ponistava: inace tajmer sa prethodne stranice otkrije novu stranicu
-     * prije nego sto je obojena (bljesak originalnih boja pri brzom prelistavanju).
-     */
     static void hideWebView(final WebView wv) {
-        if (!Prefs.dark() && !Prefs.left()) return;
+        if (!Prefs.dark() && !Prefs.left() && !Prefs.useCustomFont()) return;
         try {
             Object old = wv.getTag(TAG_HIDE);
             if (old instanceof Runnable) wv.removeCallbacks((Runnable) old);
@@ -383,11 +366,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     }
 
-    /**
-     * Prikazuje WebView tek kad je iscrtano stanje stranice poslije JS-a (tema, poravnanje). Bez toga se
-     * na jedan frejm pokaze stari (svijetli) sadrzaj koji je ostao iscrtan dok je WebView bio skriven.
-     * gen: redni broj ucitavanja za koje se prikaz trazi; ako je u medjuvremenu poceo novo ucitavanje, ne radi nista.
-     */
     static void revealAfterDraw(final WebView wv, final int gen) {
         try {
             if (android.os.Build.VERSION.SDK_INT >= 23) {
@@ -420,7 +398,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     }
 
-    /** Skracenica: XposedHelpers.findAndHookMethod uz hvatanje gresaka. Zadnji argument je callback. */
     private static void hook(String cls, ClassLoader cl, String method, Object... paramsAndCallback) {
         try {
             XposedHelpers.findAndHookMethod(cls, cl, method, paramsAndCallback);
@@ -428,8 +405,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             XposedBridge.log(t);
         }
     }
-
-    // ------------------------------------------------------------------ pojedinacni hook-ovi
 
     private static void hookTheme(ClassLoader cl) {
         XC_MethodHook h = new XC_MethodHook() {
@@ -446,10 +421,8 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         if (!Prefs.dark()) return;
         if (!a.getClass().getName().startsWith(PKG + ".")) return;
         try {
-            // svijetla tema: ostaje originalna (svijetla) osnovna tema aplikacije
             int id = Dark.light() ? 0 : a.getResources().getIdentifier("Theme.AppCompat", "style", PKG);
             if (id != 0) a.setTheme(id);
-            // Prozor ima boju teme (tamnu ili svijetlu) od prvog trenutka, prije nego se iscrta sadrzaj.
             a.getWindow().setBackgroundDrawable(new ColorDrawable(Dark.BG));
         } catch (Throwable t) {
             XposedBridge.log(t);
@@ -471,7 +444,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                     Object r = param.getResult();
                     if (r instanceof View) {
                         Dark.walk((View) r);
-                        // red menija koji se pravi za bocni meni (i kad se crta samo tokom animacije otvaranja)
                         if (param.args.length > 1 && param.args[1] instanceof android.widget.ExpandableListView) {
                             Dark.styleMenu((View) r, false);
                         }
@@ -531,14 +503,10 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     };
 
-    /**
-     * Presrece ucitavanje asseta: u .css fajlove i u same .html stranice ubacuje tamni CSS i lijevo poravnanje,
-     * tako da je vec prvo iscrtavanje stranice u ispravnom izgledu.
-     */
     private static final XC_MethodHook INTERCEPT = new XC_MethodHook() {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) {
-            if (!Prefs.dark() && !Prefs.left()) return;
+            if (!Prefs.dark() && !Prefs.left() && !Prefs.useCustomFont()) return;
             try {
                 if (!(param.args[0] instanceof WebView) || !(param.args[1] instanceof WebResourceRequest)) return;
                 String path = ((WebResourceRequest) param.args[1]).getUrl().getPath();
@@ -561,43 +529,42 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                 byte[] data = out.toByteArray();
                 if (css) {
                     param.setResult(new WebResourceResponse("text/css", "UTF-8",
-                            new ByteArrayInputStream(patchCss(data))));
+                            new ByteArrayInputStream(patchCss(data, wv.getContext()))));
                 } else {
                     String[] enc = new String[1];
-                    byte[] page = patchHtml(data, enc);
+                    byte[] page = patchHtml(data, enc, wv.getContext());
                     param.setResult(new WebResourceResponse("text/html", enc[0], new ByteArrayInputStream(page)));
                 }
             } catch (Throwable ignored) {
-                // ostavi originalni odgovor
             }
         }
     };
 
     private static String leftify(String s) {
-        return s.replaceAll("(?i)text-align\\s*:\\s*justify", "text-align:left");
+        return s.replaceAll("(?i)text-aligns*:s*justify", "text-align:left");
     }
 
-    /** Sadrzaj .css fajla: justify -> left, pa tamni CSS na kraju. */
-    private static byte[] patchCss(byte[] data) throws Exception {
+    private static byte[] patchCss(byte[] data, Context ctx) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         if (Prefs.left()) {
-            // ISO-8859-1 round trip je bez gubitaka, pa kodiranje fajla ostaje netaknuto
             data = leftify(new String(data, "ISO-8859-1")).getBytes("ISO-8859-1");
         }
         out.write(data);
         if (Prefs.left()) out.write(("\n" + Assets.LEFT_CSS).getBytes("UTF-8"));
         if (Prefs.dark()) out.write(("\n" + Assets.darkCss()).getBytes("UTF-8"));
+        if (Prefs.useCustomFont() && ctx != null) {
+            out.write(("\n" + buildFontCss(ctx)).getBytes("UTF-8"));
+        }
         return out.toByteArray();
     }
 
-    /** Sadrzaj .html fajla sa ubacenim stilom (poslije svih linkovanih stilova, prije </head>). */
-    private static byte[] patchHtml(byte[] data, String[] encOut) throws Exception {
+    private static byte[] patchHtml(byte[] data, String[] encOut, Context ctx) throws Exception {
         String s = new String(data, "ISO-8859-1");
         String enc = "UTF-8";
         boolean bom = data.length >= 3 && (data[0] & 0xff) == 0xEF && (data[1] & 0xff) == 0xBB
                 && (data[2] & 0xff) == 0xBF;
         if (!bom) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)charset\\s*=\\s*([\\w-]+)")
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)charsets*=s*([w-]+)")
                     .matcher(s.substring(0, Math.min(s.length(), 2048)));
             if (m.find()) enc = m.group(1);
         }
@@ -606,6 +573,9 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         StringBuilder css = new StringBuilder();
         if (Prefs.left()) css.append(Assets.LEFT_CSS);
         if (Prefs.dark()) css.append(Assets.darkCss());
+        if (Prefs.useCustomFont() && ctx != null) {
+            css.append(buildFontCss(ctx));
+        }
         String tag = "<style id=\"__dkcss0\">" + css + "</style>";
         if (Prefs.dark()) tag += "<script>" + Assets.navJs() + "</script>";
         java.util.regex.Matcher he = java.util.regex.Pattern.compile("(?i)</head>").matcher(s);
@@ -620,10 +590,26 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         return s.getBytes("ISO-8859-1");
     }
 
+    private static String buildFontCss(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        String b64Regular = getFontBase64(ctx, false);
+        String b64Bold = getFontBase64(ctx, true);
+        if (!b64Regular.isEmpty()) {
+            sb.append("@font-face { font-family: 'PravoslavacCustom'; src: url(data:font/ttf;base64,")
+              .append(b64Regular).append("); font-weight: normal; font-style: normal; }\n");
+        }
+        if (!b64Bold.isEmpty()) {
+            sb.append("@font-face { font-family: 'PravoslavacCustom'; src: url(data:font/ttf;base64,")
+              .append(b64Bold).append("); font-weight: bold; font-style: normal; }\n");
+        }
+        sb.append("body, p, div, span, h1, h2, h3, h4, h5, h6, li, td, th, a, blockquote { ")
+          .append("font-family: 'PravoslavacCustom', 'Noto Serif', Georgia, serif !important; }\n");
+        return sb.toString();
+    }
+
     private static final java.util.Set<Class<?>> HOOKED_CLIENTS =
             java.util.Collections.synchronizedSet(new java.util.HashSet<Class<?>>());
 
-    /** Hook-ovi na metode koje konkretan WebViewClient sam preklapa. */
     static void hookClientClass(Class<?> c) {
         if (c == null || c == android.webkit.WebViewClient.class || !HOOKED_CLIENTS.add(c)) return;
         try {
@@ -640,11 +626,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                 "android.webkit.WebResourceRequest", INTERCEPT);
     }
 
-    /**
-     * setBackgroundResource: okvir danasnjeg dana u kalendaru. Aplikacija danasnjem redu postavlja
-     * tablerow_border_neparni_dani (neparan datum, ima i punu pozadinu) ili tablerow_border_parni_dani
-     * (paran datum, samo okvir). Oba se zamjenjuju okvirom u boji teme; ostalo se naknadno popravlja.
-     */
     private static final class OddRowHook extends XC_MethodHook {
         private int oddId = -1;
         private int evenId = -1;
@@ -666,7 +647,7 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                 if (odd || even) {
                     GradientDrawable g = new GradientDrawable();
                     g.setShape(GradientDrawable.RECTANGLE);
-                    if (odd) g.setColor(Dark.ROW); // parni: samo okvir, bez pozadine
+                    if (odd) g.setColor(Dark.ROW);
                     float density = v.getResources().getDisplayMetrics().density;
                     int w = Math.max(1, Math.round(density * 3f));
                     g.setStroke(w, Dark.ROW_BORDER);
@@ -682,7 +663,7 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         @Override
         protected void afterHookedMethod(MethodHookParam param) {
             if (!Prefs.dark()) return;
-            if (handled) { // vec je u bojama teme, ne diraj (inace bi svijetla boja okvira bila invertovana)
+            if (handled) {
                 handled = false;
                 return;
             }
@@ -694,9 +675,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     }
 
-    // ------------------------------------------------------------------ resursi
-
-    /** Nazivi boja cije su zamjene postavljene (da se mogu vratiti kad se tema iskljuci). */
     private static final java.util.Set<String> REPLACED =
             java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
 
@@ -709,7 +687,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     }
 
-    /** Resursi aplikacije (cuvaju se da bi se boje mogle promijeniti i dok je aplikacija otvorena). */
     private static XResources RES;
 
     @Override
@@ -720,7 +697,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         reapplyResources();
     }
 
-    /** (Ponovo) postavi zamjene resursa u bojama odabrane teme. Ne radi nista ako je tema iskljucena. */
     static void reapplyResources() {
         XResources res = RES;
         if (res == null || !Prefs.dark()) return;
@@ -736,20 +712,18 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         rc(res, "list_background", Dark.SURFACE);
         rc(res, "list_divider", Dark.DIVIDER);
         rc(res, "textcolormain", Dark.TEXT);
-        rc(res, "background_material_light", Dark.BG); // svijetla pozadina prozora iz AppCompat teme
+        rc(res, "background_material_light", Dark.BG);
         rc(res, "background_floating_material_light", Dark.SURFACE);
-        rc(res, "my_color_light", Dark.ARROW_PRESSED); // pritisnuto stanje dugmadi / strelica (mybuttonselector)
+        rc(res, "my_color_light", Dark.ARROW_PRESSED);
 
         try {
-            // pozadina "papir"
             res.setReplacement(PKG, "drawable", "paper", new XResources.DrawableLoader() {
                 @Override
                 public Drawable newDrawable(XResources r, int id) throws Throwable {
-                    if (!Prefs.dark()) return null; // tema iskljucena: originalni drawable
+                    if (!Prefs.dark()) return null;
                     return new ColorDrawable(Dark.BG);
                 }
             });
-            // klizač (scrollbar thumb)
             res.setReplacement(PKG, "drawable", "customscroll", new XResources.DrawableLoader() {
                 @Override
                 public Drawable newDrawable(XResources r, int id) throws Throwable {
@@ -761,7 +735,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                     return g;
                 }
             });
-            // dugmad / trake
             res.setReplacement(PKG, "drawable", "gradient_bg", new XResources.DrawableLoader() {
                 @Override
                 public Drawable newDrawable(XResources r, int id) throws Throwable {
@@ -791,14 +764,9 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     }
 
-    /**
-     * Vraca originalne boje resursa (poslije iskljucivanja teme, bez restarta aplikacije). Originali se citaju iz
-     * novog, neizmijenjenog Resources objekta nad istim fajlovima. Drawable zamjene se same iskljucuju
-     * (vracaju null dok je tema iskljucena). Vraca false ako se neka boja nije mogla vratiti.
-     */
     static boolean restoreResources(Context ctx) {
         XResources res = RES;
-        if (res == null || REPLACED.isEmpty()) return true; // nista nije ni bilo zamijenjeno
+        if (res == null || REPLACED.isEmpty()) return true;
         boolean all = true;
         android.content.res.Resources plain = null;
         try {
@@ -813,7 +781,7 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         for (String name : names) {
             try {
                 int id = plain.getIdentifier(name, "color", PKG);
-                if (id == 0) continue; // te boje u aplikaciji nema, pa ni zamjene
+                if (id == 0) continue;
                 res.setReplacement(PKG, "color", name, Integer.valueOf(plain.getColor(id)));
             } catch (Throwable t) {
                 all = false;
@@ -823,12 +791,8 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         return all;
     }
 
-    // ------------------------------------------------------------------ meni: grupa "Podesavanja"
-
-    /** Naziv nove grupe u bocnom meniju (na kraju liste, bez podstavki). */
     static final String MENU_TITLE = "Подешавања";
 
-    /** Naziv grupe (s60.b) ili null. */
     private static String groupName(Object g) {
         if (g == null) return null;
         if (g instanceof String) return (String) g;
@@ -840,7 +804,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         }
     }
 
-    /** Dodaje grupu "Podesavanja" na kraj liste grupa adaptera bocnog menija (zl0.e). */
     @SuppressWarnings("unchecked")
     private static void addMenuGroup(Object activity) throws Throwable {
         android.widget.ExpandableListView lv =
@@ -865,11 +828,9 @@ private static String getFontBase64(Context appContext, boolean isBold) {
 
     private static boolean groupIconHooked;
 
-    /** Aplikacija bira ikonu grupe po poziciji; za nasu grupu postavi zupcanik umjesto zaostale ikone. */
     private static synchronized void hookGroupIcon(Class<?> adapterClass) {
         if (groupIconHooked) return;
         groupIconHooked = true;
-        // redovi koje adapter pravi (i oni koji se crtaju samo tokom animacije otvaranja podmenija): "Tekst podmenija 1"
         XC_MethodHook menuRowHook = new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
@@ -906,7 +867,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
     }
 
     private static void hookSettingsMenu(final ClassLoader cl) {
-        // Dodaj grupu poslije gradnje menija.
         hook(PKG + ".MainActivity", cl, "onCreate", "android.os.Bundle", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
@@ -919,7 +879,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
             }
         });
 
-        // Klik na grupu: otvori Podesavanja umjesto originalne obrade.
         hook("android.widget.ExpandableListView", cl, "setOnGroupClickListener",
                 android.widget.ExpandableListView.OnGroupClickListener.class, new XC_MethodHook() {
                     @Override
@@ -952,7 +911,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                     }
                 });
 
-        // Izbor stavke (podstavke) menija zatvara podesavanja.
         hook("android.widget.ExpandableListView", cl, "setOnChildClickListener",
                 android.widget.ExpandableListView.OnChildClickListener.class, new XC_MethodHook() {
                     @Override
@@ -977,7 +935,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                     }
                 });
 
-        // Back zatvara podesavanja (rezervna putanja ako fokus nije u njihovom prozoru).
         XC_MethodHook back = new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
@@ -993,7 +950,6 @@ private static String getFontBase64(Context appContext, boolean isBold) {
         hook("android.app.Activity", cl, "onBackPressed", back);
     }
 
-    /** Zatvara bocni meni (DrawerLayout) ako ga ima u hijerarhiji aktivnosti. */
     static void closeDrawer(Activity a) {
         try {
             View root = a.getWindow().getDecorView();
@@ -1004,13 +960,11 @@ private static String getFontBase64(Context appContext, boolean isBold) {
                 c.getMethod("closeDrawers").invoke(d);
                 return;
             } catch (NoSuchMethodException e) {
-                // aplikacija je obfuskirana: closeDrawers(boolean) = d(boolean), closeDrawers() / closeDrawer(START) = c()
             }
             try {
                 c.getMethod("d", boolean.class).invoke(d, Boolean.FALSE);
                 return;
             } catch (NoSuchMethodException e) {
-                // probaj sljedece
             }
             c.getMethod("c").invoke(d);
         } catch (Throwable t) {
