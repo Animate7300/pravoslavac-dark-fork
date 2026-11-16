@@ -105,4 +105,19 @@ public static void setUseCustomFont(boolean value) {
     static boolean dark() { return get(KEY_DARK, true); }
 
     static boolean left() { return get(KEY_LEFT, true); }
+
+// ========== PRILAGOĐENI FONT ==========
+    private static final String KEY_CUSTOM_FONT = "use_custom_font";
+
+    public static boolean useCustomFont() {
+        return getBoolean(KEY_CUSTOM_FONT, false);
+    }
+
+    public static void setUseCustomFont(boolean value) {
+        putBoolean(KEY_CUSTOM_FONT, value);
+    }
+
+
+
+
 }
