@@ -985,4 +985,74 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
         }
         return null;
     }
+// ========== PRILAGOĐENI FONT - KEŠ ==========
+    private static android.graphics.Typeface customTypefaceRegular;
+    private static android.graphics.Typeface customTypefaceBold;
+    private static String fontBase64Regular;
+    private static String fontBase64Bold;
+    private static boolean fontLoadAttempted = false;
+
+    private static android.graphics.Typeface getCustomTypeface(Context appContext, boolean isBold) {
+        if (isBold && customTypefaceBold != null) return customTypefaceBold;
+        if (!isBold && customTypefaceRegular != null) return customTypefaceRegular;
+        
+        if (!fontLoadAttempted) {
+            fontLoadAttempted = true;
+            XposedBridge.log("PravoslavacDark: Pokušavam da učitam font iz modula...");
+        }
+
+        try {
+            Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark",
+                    Context.CONTEXT_IGNORE_SECURITY);
+            String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
+            
+            // Proveri da li fajl uopšte postoji u assets
+            String[] assets = moduleCtx.getAssets().list("fonts");
+            if (assets != null) {
+                XposedBridge.log("PravoslavacDark: Fajlovi u assets/fonts: " + java.util.Arrays.toString(assets));
+            } else {
+                XposedBridge.log("PravoslavacDark: Folder 'fonts' ne postoji u assets!");
+            }
+
+            android.graphics.Typeface tf = android.graphics.Typeface.createFromAsset(
+                    moduleCtx.getAssets(), fontName);
+            
+            if (isBold) customTypefaceBold = tf;
+            else customTypefaceRegular = tf;
+            
+            XposedBridge.log("PravoslavacDark: Uspešno učitan font: " + fontName);
+            return tf;
+        } catch (Exception e) {
+            XposedBridge.log("PravoslavacDark: GREŠKA pri učitavanju fonta '" + (isBold ? "bold" : "regular") + "': " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static String getFontBase64(Context appContext, boolean isBold) {
+        if (isBold && fontBase64Bold != null) return fontBase64Bold;
+        if (!isBold && fontBase64Regular != null) return fontBase64Regular;
+
+        try {
+            Context moduleCtx = appContext.createPackageContext("io.github.borko17.pravoslavac.dark",
+                    Context.CONTEXT_IGNORE_SECURITY);
+            String fontName = isBold ? "fonts/noto_serif_bold.ttf" : "fonts/noto_serif_regular.ttf";
+            
+            java.io.InputStream is = moduleCtx.getAssets().open(fontName);
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] data = new byte[8192];
+            int read;
+            while ((read = is.read(data)) != -1) buffer.write(data, 0, read);
+            is.close();
+            
+            String b64 = android.util.Base64.encodeToString(buffer.toByteArray(), android.util.Base64.NO_WRAP);
+            if (isBold) fontBase64Bold = b64;
+            else fontBase64Regular = b64;
+            
+            XposedBridge.log("PravoslavacDark: Uspešno konvertovan font u Base64: " + fontName + " (veličina: " + b64.length() + " karaktera)");
+            return b64;
+        } catch (Exception e) {
+            XposedBridge.log("PravoslavacDark: GREŠKA pri čitanju fonta za Base64 '" + (isBold ? "bold" : "regular") + "': " + e.getMessage());
+            return "";
+        }
+    }
 }
