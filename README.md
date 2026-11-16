@@ -1,4 +1,4 @@
-# Pravoslavac Dark (LSPosed modul)
+# Pravoslavac Dark fork (LSPosed modul)
 
 LSPosed (Xposed) modul za Android aplikacije **Pravoslavac** (`com.pravoslavac`) i **Житије светих**
 (`com.zitijesvetih`). Za obe aplikacije isti je skup opcija, tema i podešavanja. Dodaje tamnu temu sa
