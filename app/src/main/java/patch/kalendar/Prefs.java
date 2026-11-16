@@ -62,6 +62,17 @@ final class Prefs {
     private static String lastJson, lastSel;
     private static Themes.Theme lastTheme;
 
+    // ========== PRILAGOĐENI FONT ==========
+private static final String KEY_CUSTOM_FONT = "use_custom_font";
+
+public static boolean useCustomFont() {
+    return getBoolean(KEY_CUSTOM_FONT, false);
+}
+
+public static void setUseCustomFont(boolean value) {
+    putBoolean(KEY_CUSTOM_FONT, value);
+}
+
     /** Trenutno odabrana tema (kesirana dok se postavke ne promijene). */
     private static Themes.Theme theme() {
         try {
