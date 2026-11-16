@@ -18,6 +18,9 @@ final class Prefs {
     static final String KEY_SKIP_SPLASH = "skip_splash";
     static final String KEY_DARK = "dark";
     static final String KEY_LEFT = "left_align";
+    
+    // >>> DODATO: Ključ za prilagođeni font (bez 'private' da bi SettingsUi mogao da mu pristupi) <<<
+    static final String KEY_CUSTOM_FONT = "use_custom_font";
 
     private static String dataDir;
     private static XSharedPreferences xp;
@@ -62,17 +65,6 @@ final class Prefs {
     private static String lastJson, lastSel;
     private static Themes.Theme lastTheme;
 
-    // ========== PRILAGOĐENI FONT ==========
-private static final String KEY_CUSTOM_FONT = "use_custom_font";
-
-public static boolean useCustomFont() {
-    return getBoolean(KEY_CUSTOM_FONT, false);
-}
-
-public static void setUseCustomFont(boolean value) {
-    putBoolean(KEY_CUSTOM_FONT, value);
-}
-
     /** Trenutno odabrana tema (kesirana dok se postavke ne promijene). */
     private static Themes.Theme theme() {
         try {
@@ -105,21 +97,7 @@ public static void setUseCustomFont(boolean value) {
     static boolean dark() { return get(KEY_DARK, true); }
 
     static boolean left() { return get(KEY_LEFT, true); }
-
-// ========== PRILAGOĐENI FONT ==========
-    private static final String KEY_CUSTOM_FONT = "use_custom_font";
-
-    public static boolean useCustomFont() {
-        return getBoolean(KEY_CUSTOM_FONT, false);
-    }
-
-    public static void setUseCustomFont(boolean value) {
-        putBoolean(KEY_CUSTOM_FONT, value);
-    }
-
-private static final String KEY_CUSTOM_FONT = "use_custom_font";
-   public static boolean useCustomFont() { return getBoolean(KEY_CUSTOM_FONT, false); }
-   public static void setUseCustomFont(boolean value) { putBoolean(KEY_CUSTOM_FONT, value); }
-
-
+    
+    // >>> DODATO: Metoda za čitanje postavke fonta <<<
+    static boolean useCustomFont() { return get(KEY_CUSTOM_FONT, false); }
 }
