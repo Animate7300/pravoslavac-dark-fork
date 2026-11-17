@@ -34,6 +34,8 @@ final class Fonts {
     private static final int TAG_FORIG = 0x7e0c0a23;
     private static final int TAG_FSIZE = 0x7e0c0a24;
     private static final int TAG_ZOOM0 = 0x7e0c0a25;
+    private static final int TAG_FLAY = 0x7e0c0a26;
+    private static final int TAG_FPAD = 0x7e0c0a27;
 
     /** Postavlja se dok modul sam mijenja font (da hook za setTypeface to ne "popravlja"). */
     static volatile boolean busy;
@@ -233,6 +235,62 @@ final class Fonts {
         }
     }
 
+    /**
+     * Tekst sa fiksnom visinom (npr. red sa nazivom dana): font sa velikim vertikalnim razmakom ili visokim slovima
+     * odsijeca red. Zato se kod takvih tekstova isključuje dodatni razmak fonta (includeFontPadding), a ako i dalje ne
+     * stane, veličina se smanji tačno toliko da jedan red stane u zadatu visinu.
+     */
+    private static float fitSize(TextView tv, float want, Typeface tf) {
+        try {
+            ViewGroup.LayoutParams lp = tv.getLayoutParams();
+            if (lp == null || lp.height <= 0 || tf == null) return want;
+            if (tv.getMaxLines() > 1 && tv.getMaxLines() < 100) return want;   // viselinijski tekst ne diramo
+            int avail = lp.height - tv.getCompoundPaddingTop() - tv.getCompoundPaddingBottom();
+            if (avail <= 0) return want;
+            if (tv.getIncludeFontPadding()) {
+                if (tv.getTag(TAG_FPAD) == null) tv.setTag(TAG_FPAD, Boolean.TRUE);
+                tv.setIncludeFontPadding(false);
+            }
+            android.graphics.Paint p = new android.graphics.Paint();
+            p.setTypeface(tf);
+            p.setTextSize(want);
+            android.graphics.Paint.FontMetrics fm = new android.graphics.Paint.FontMetrics();
+            p.getFontMetrics(fm);
+            float h = fm.descent - fm.ascent;
+            return h > avail ? want * avail / h : want;
+        } catch (Throwable t) {
+            return want;
+        }
+    }
+
+    /**
+     * Rezervna provjera poslije rasporeda: ako je jedan red teksta viši od samog TextView-a (visinu mu je zadao layout),
+     * veličina se smanjuje dok red ne stane.
+     */
+    private static void watchFit(final TextView tv) {
+        if (tv.getTag(TAG_FLAY) != null) return;
+        tv.setTag(TAG_FLAY, Boolean.TRUE);
+        tv.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int l, int t, int r, int b, int ol, int ot, int or, int ob) {
+                try {
+                    if (!(tv.getTag(TAG_FKEY) instanceof String)) return;
+                    android.text.Layout lay = tv.getLayout();
+                    if (lay == null || tv.getLineCount() != 1) return;
+                    int avail = tv.getHeight() - tv.getCompoundPaddingTop() - tv.getCompoundPaddingBottom();
+                    int need = lay.getHeight();
+                    if (avail > 0 && need > avail + 1) {
+                        float cur = tv.getTextSize();
+                        float next = cur * avail / need;
+                        if (next < cur - 0.5f) setSize(tv, next);
+                    }
+                } catch (Throwable e) {
+                    XposedBridge.log(e);
+                }
+            }
+        });
+    }
+
     /** Primjenjuje font i velicinu izabrane za tekst "key" na TextView (ili vraca original ako nije izabrano nista). */
     static void apply(TextView tv, String key) {
         if (tv == null || key == null) return;
@@ -261,7 +319,9 @@ final class Fonts {
             }
             if (t != null && tv.getTypeface() != t) set(tv, t);
             float want = ((Float) tv.getTag(TAG_FSIZE)).floatValue() * pct / 100f;
+            want = fitSize(tv, want, tv.getTypeface());
             if (Math.abs(tv.getTextSize() - want) > 0.5f) setSize(tv, want);
+            watchFit(tv);
         } catch (Throwable e) {
             XposedBridge.log(e);
         }
@@ -282,6 +342,10 @@ final class Fonts {
         tv.setTag(TAG_FSIZE, null);
         set(tv, o instanceof Typeface ? (Typeface) o : null);
         if (sz instanceof Float) setSize(tv, ((Float) sz).floatValue());
+        if (tv.getTag(TAG_FPAD) != null) {
+            tv.setTag(TAG_FPAD, null);
+            tv.setIncludeFontPadding(true);
+        }
     }
 
     /** Poziva se prije TextView.setTextSize(unit, size): velicina se mnozi izabranim procentom za taj tekst. */
@@ -292,7 +356,7 @@ final class Fonts {
                 ((Float) args[1]).floatValue(), tv.getResources().getDisplayMetrics());
         tv.setTag(TAG_FSIZE, Float.valueOf(px));
         args[0] = Integer.valueOf(android.util.TypedValue.COMPLEX_UNIT_PX);
-        args[1] = Float.valueOf(px * Prefs.fontSize((String) k) / 100f);
+        args[1] = Float.valueOf(fitSize(tv, px * Prefs.fontSize((String) k) / 100f, tv.getTypeface()));
     }
 
     /** Velicina teksta stranica u WebView-u ("Листе књига и молитви"): zoom teksta WebView-a (pozivati na pocetku ucitavanja). */
