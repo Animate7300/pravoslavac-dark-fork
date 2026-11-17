@@ -38,6 +38,9 @@ na „Preuzmi“):
    Svaki font se prije preuzimanja prikazuje u pregledu (pangram sa svim slovima srpske ćirilice); za pregled se
    preuzima samo mali isječak (nekoliko KB, čuva se u kešu), a uz font bez nekog slova stoji upozorenje „⚠“.
 3. U tabu „Фонтови“ izaberite font i veličinu (50–200 %) za svaki tekst posebno, ili odjednom za ceo kalendar
+   Posebne stavke teksta u kalendaru: datum u traci dana, dan u istoj traci, „мрс“ i oznake postova (вода, уље и
+   вино...) prepoznaju se po sadržaju teksta. Opcija „Не мењај црквенословенске фонтове“ izuzima crkvenoslovenske
+   fontove (`triodion-ieUcs` i `IrmolSkun_0`).
    (prvi red „Цео календар“). Izmene se vide kad zatvorite podešavanja.
 
 Napomene: font se primenjuje na ceo tekst datog tipa (slova u tekstu koja imaju drugu boju preko `ForegroundColorSpan`

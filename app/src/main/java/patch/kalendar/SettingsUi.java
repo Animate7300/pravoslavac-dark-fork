@@ -677,6 +677,10 @@ final class SettingsUi {
         hint.setPadding(0, dp(8), 0, dp(4));
         root.addView(hint);
 
+        root.addView(makeSwitch("Не мењај црквенословенске фонтове",
+                "Изузима црквенословенске фонтове (triodion-ieUcs и IrmolSkun_0).",
+                Prefs.KEY_KEEP_CS, true));
+
         TextView dl = label("＋ Преузми фонтове…", 16f, text());
         dl.setPadding(0, dp(8), 0, dp(12));
         dl.setOnClickListener(new View.OnClickListener() {

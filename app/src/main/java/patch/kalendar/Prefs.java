@@ -20,6 +20,7 @@ final class Prefs {
     static final String KEY_SKIP_SPLASH = "skip_splash";
     static final String KEY_DARK = "dark";
     static final String KEY_LEFT = "left_align";
+    static final String KEY_KEEP_CS = "keep_cs";
     /** JSON {"f": {kljuc teksta: naziv fonta}, "s": {kljuc teksta: velicina u %}} (fontovi ne zavise od teme). */
     static final String KEY_FONTS = "fonts";
 
@@ -116,6 +117,11 @@ final class Prefs {
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    /** Da li se preuzeti fontovi NE primjenjuju na crkvenoslovenske fontove (triodion-ieUcs i IrmolSkun_0). */
+    static synchronized boolean keepSlavonic() {
+        return get(KEY_KEEP_CS, true);
     }
 
     /** Velicina teksta u procentima originalne (50..200, podrazumijevano 100). */

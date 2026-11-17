@@ -48,6 +48,10 @@ final class Dark {
     static int BTN_BORDER = 0xffe99a96;
     static int ARROWS = 0xffffffff;
     static int CAL_ICON = 0xff3d8fd1;
+    static int DAY_DATE = 0xffe1e6ea;
+    static int DAY_NAME = 0xffe1e6ea;
+    static int MEAT = 0xffe1e6ea;
+    static int FAST = 0xffff8a7a;
     static int TOOLBAR = 0xff212121;
     static int TOOLBAR_TEXT = 0xffffffff;
     static int ARROW_PRESSED = 0xff4a4d55;
@@ -93,6 +97,10 @@ final class Dark {
         BTN_BORDER = Prefs.color("c_btn_border");
         ARROWS = Prefs.color("c_arrows");
         CAL_ICON = Prefs.color("c_cal_icon");
+        DAY_DATE = Prefs.color("c_day_date");
+        DAY_NAME = Prefs.color("c_day_name");
+        MEAT = Prefs.color("c_meat");
+        FAST = Prefs.color("c_fast");
         TOOLBAR = Prefs.color("c_toolbar");
         TOOLBAR_TEXT = Prefs.color("c_toolbar_text");
         ARROW_PRESSED = Prefs.color("c_arrow_pressed");
@@ -366,6 +374,121 @@ final class Dark {
     /** Boja teksta za TextView u nedeljnoj traci / traci mjeseca / naslovu kalendara, ili 0 ako nije ni u jednom. */
     static int roleColor(View tv) {
         return colorOfKey(roleKey(tv));
+    }
+
+    // ------------------------------------------------------------------ datum, dan i oznake (mrs / postovi) u kalendaru
+
+    static final int TAG_TROLE = 0x7e0c0a0c;
+
+    private static final java.util.regex.Pattern DAY_DATE_RE = java.util.regex.Pattern.compile(
+            "^\\d{1,2}\\.\\s*\\p{L}+\\.?\\s*\\(\\d{1,2}\\.\\s*\\p{L}+\\.?\\)\\s*\\d{4}\\.?$");
+    private static final java.util.regex.Pattern FAST_RE = java.util.regex.Pattern.compile(
+            "^(?!св\\b)[^\\d]{0,24}(вода|уље|уљем|вино|риба|рибу|посно|пост|сир|јаја|млеко|млијеко)[^\\d]{0,24}$");
+    private static final java.util.Set<String> DAY_NAMES = new java.util.HashSet<String>(java.util.Arrays.asList(
+            "недеља", "недјеља", "понедељак", "понедјељак", "уторак", "среда", "сриједа", "четвртак", "петак", "субота"));
+
+    /**
+     * Ključ teksta prema sadržaju (tekst dolazi iz aplikacije): datum u traci dana, dan u istoj traci, oznaka "мрс" ili
+     * oznake postova (вода, уље и вино...); null ako tekst nije ništa od toga.
+     */
+    static String textRole(CharSequence cs) {
+        if (cs == null) return null;
+        int n = cs.length();
+        if (n == 0 || n > 60) return null;
+        String s = cs.toString().trim();
+        if (DAY_DATE_RE.matcher(s).matches()) return "c_day_date";
+        String l = s.toLowerCase(java.util.Locale.ROOT);
+        if (DAY_NAMES.contains(l)) return "c_day_name";
+        if ("мрс".equals(l)) return "c_meat";
+        if (l.length() <= 30 && FAST_RE.matcher(l).matches()) return "c_fast";
+        return null;
+    }
+
+    static int colorOfRole(String k) {
+        if (k == null) return 0;
+        switch (k) {
+            case "c_day_date": return DAY_DATE;
+            case "c_day_name": return DAY_NAME;
+            case "c_meat": return MEAT;
+            case "c_fast": return FAST;
+            default: return 0;
+        }
+    }
+
+    private static boolean isFixedRole(String k) {
+        return "c_meat".equals(k) || "c_fast".equals(k);
+    }
+
+    /** Praznicni (svijetlocrveni) datum i dan zadržavaju boju praznika; ostali dobijaju boju svoje stavke. */
+    private static boolean isHolidayText(TextView tv) {
+        Object o = tv.getTag(TAG_ORIG);
+        int orig = o instanceof Integer ? ((Integer) o).intValue() : tv.getTextColors().getDefaultColor();
+        return "c_holiday".equals(fgKey(orig)) || (tv.getCurrentTextColor() & 0xffffff) == (HOLIDAY & 0xffffff);
+    }
+
+    /** Font i boja za tekst koji je datum, dan ili oznaka; vraća ključ ili null (tada tekst nije ništa od toga). */
+    static String applyTextRole(TextView tv, CharSequence cs) {
+        String tk = textRole(cs);
+        if (tk == null) {
+            if (tv.getTag(TAG_TROLE) != null) tv.setTag(TAG_TROLE, null);
+            return null;
+        }
+        tv.setTag(TAG_TROLE, tk);
+        Fonts.apply(tv, tk);
+        int rc = colorOfRole(tk);
+        if (!isFixedRole(tk) && isHolidayText(tv)) rc = HOLIDAY;
+        if (tv.getCurrentTextColor() != rc) {
+            applying = true;
+            try {
+                tv.setTextColor(rc);
+            } finally {
+                applying = false;
+            }
+        }
+        return tk;
+    }
+
+    /** Ključ fonta za tekst koji je (većim dijelom) obojen spanovima praznične / naslovne crvene boje, ili null. */
+    static String spanFontKey(CharSequence cs) {
+        if (!(cs instanceof Spanned) || cs.length() == 0) return null;
+        Spanned sp = (Spanned) cs;
+        int hol = 0;
+        int tit = 0;
+        for (ForegroundColorSpan f : sp.getSpans(0, sp.length(), ForegroundColorSpan.class)) {
+            int len = sp.getSpanEnd(f) - sp.getSpanStart(f);
+            String k = fgKey(f.getForegroundColor());
+            if ("c_holiday".equals(k)) hol += len;
+            else if ("c_title".equals(k)) tit += len;
+        }
+        int half = cs.length() / 2;
+        if (hol >= half && hol >= tit && hol > 0) return "c_holiday";
+        if (tit >= half && tit > 0) return "c_title";
+        return null;
+    }
+
+    // ------------------------------------------------------------------ slova na tabovima (font)
+
+    private static final int TAG_TABFONT = 0x7e0c0a0d;
+
+    private static void tabFonts(View v) {
+        if (v instanceof TextView) Fonts.apply((TextView) v, "c_tab_text");
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) tabFonts(g.getChildAt(i));
+        }
+    }
+
+    /** Tabovi se prave poslije prvog crtanja, pa se font primjenjuje i poslije svakog rasporeda trake sa tabovima. */
+    static void watchTabFonts(View tabLayout) {
+        tabFonts(tabLayout);
+        if (tabLayout.getTag(TAG_TABFONT) != null) return;
+        tabLayout.setTag(TAG_TABFONT, Boolean.TRUE);
+        tabLayout.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int l, int t, int r, int b, int ol, int ot, int or, int ob) {
+                tabFonts(v);
+            }
+        });
     }
 
     /** TextView je unutar TabLayout-a (slova na tabovima). */
@@ -1024,6 +1147,7 @@ final class Dark {
             } catch (Throwable ignored) {
             }
             setTabIndicator(v);
+            watchTabFonts(v);
         }
         if (v instanceof ImageView) styleMonthImage((ImageView) v);
         styleToolbar(v);
@@ -1044,6 +1168,7 @@ final class Dark {
                 Fonts.apply(tv, rk);
                 return;
             }
+            if (applyTextRole(tv, tv.getText()) != null) return;   // datum, dan ili oznaka: vlastiti font i boja
             ColorStateList cur = tv.getTextColors();
             // font: slova na tabovima, inace prema (izvornoj) boji teksta; vec dodijeljen font se samo osvjezi
             String fk = inTabs(tv) ? "c_tab_text" : fgKey(cur.getDefaultColor());
@@ -1160,6 +1285,10 @@ final class Dark {
         if (role != 0) {
             Fonts.apply(tv, rk);
             return spansToColor(cs, role);
+        }
+        if (applyTextRole(tv, cs) == null) {
+            String sk = spanFontKey(cs);   // crveni spanovi (praznici / naslovi): font te stavke
+            if (sk != null) Fonts.apply(tv, sk);
         }
         return fixSpans(cs);
     }

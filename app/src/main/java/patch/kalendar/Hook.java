@@ -278,7 +278,22 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
                         return;
                     }
                     int c = ((Integer) param.args[0]).intValue();
-                    if (c == DARK_RED) {
+                    Object tr = ((View) param.thisObject).getTag(Dark.TAG_TROLE);
+                    if (tr instanceof String) {   // datum, dan, mrs / postovi: boja prema ulozi teksta
+                        String k = (String) tr;
+                        boolean fixed = "c_meat".equals(k) || "c_fast".equals(k);
+                        boolean red = c == DARK_RED || "c_holiday".equals(Dark.fgKey(c));
+                        if (fixed || !red) {
+                            param.args[0] = Integer.valueOf(Dark.colorOfRole(k));
+                            return;
+                        }
+                    }
+                    String fk = Dark.fgKey(c);
+                    if ("c_title".equals(fk) || "c_holiday".equals(fk)) {
+                        ((View) param.thisObject).setTag(Dark.TAG_ORIG, Integer.valueOf(c));
+                        param.args[0] = Integer.valueOf("c_title".equals(fk) ? Dark.TITLE : Dark.HOLIDAY);
+                        Fonts.apply((android.widget.TextView) param.thisObject, fk);
+                    } else if (c == DARK_RED) {
                         ((View) param.thisObject).setTag(Dark.TAG_ORIG, Integer.valueOf(c));
                         param.args[0] = Integer.valueOf(Dark.HOLIDAY);
                         Fonts.apply((android.widget.TextView) param.thisObject, "c_holiday");
@@ -290,6 +305,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
         });
 
         hookText(cl);
+        hookTypefaces(cl);
         hookCss(cl);
         hookSettingsMenu(cl);
 
@@ -461,6 +477,54 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
             }
         }
     };
+
+    /** Beleži fontove koje aplikacija sama učitava (crkvenoslovenski): oni se mogu izuzeti iz primjene preuzetih fontova. */
+    private static void hookTypefaces(ClassLoader cl) {
+        XC_MethodHook note = new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                try {
+                    Object r = param.getResult();
+                    if (r instanceof android.graphics.Typeface) {
+                        String path = null;
+                        if (param.args != null) {
+                            for (Object arg : param.args) {
+                                if (arg instanceof String) {
+                                    path = (String) arg;
+                                    break;
+                                } else if (arg instanceof java.io.File) {
+                                    path = ((java.io.File) arg).getName();
+                                    break;
+                                }
+                            }
+                        }
+                        if (Fonts.isCsFont(path)) {
+                            Fonts.noteAppFace((android.graphics.Typeface) r);
+                        }
+                    }
+                } catch (Throwable t) {
+                    XposedBridge.log(t);
+                }
+            }
+        };
+        hook("android.graphics.Typeface", cl, "createFromAsset", android.content.res.AssetManager.class, String.class, note);
+        hook("android.graphics.Typeface", cl, "createFromFile", String.class, note);
+        hook("android.graphics.Typeface", cl, "createFromFile", java.io.File.class, note);
+        hook("android.graphics.Typeface", cl, "create", String.class, int.class, note);
+        hook("android.graphics.Typeface", cl, "create", android.graphics.Typeface.class, int.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                try {
+                    Object r = param.getResult();
+                    if (param.args != null && param.args.length > 0 && param.args[0] instanceof android.graphics.Typeface && r instanceof android.graphics.Typeface) {
+                        Fonts.noteDerived((android.graphics.Typeface) param.args[0], (android.graphics.Typeface) r);
+                    }
+                } catch (Throwable t) {
+                    XposedBridge.log(t);
+                }
+            }
+        });
+    }
 
     private static void hookText(ClassLoader cl) {
         hook("android.widget.TextView", cl, "setTextSize", int.class, float.class, TEXTSIZE);

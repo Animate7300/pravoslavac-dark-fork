@@ -39,6 +39,32 @@ final class Fonts {
 
     /** Postavlja se dok modul sam mijenja font (da hook za setTypeface to ne "popravlja"). */
     static volatile boolean busy;
+    /** Postavlja se dok modul sam pravi Typeface iz fajla (da se ne smatra fontom aplikacije). */
+    static volatile boolean creating;
+
+    static boolean isCsFont(String path) {
+        if (creating || path == null || path.isEmpty()) return false;
+        String l = path.toLowerCase(java.util.Locale.ROOT);
+        if (l.contains("miroslav")) return false;
+        return l.contains("triodion") || l.contains("ieucs") || l.contains("irmol") || l.contains("skun");
+    }
+
+    // fontovi koje aplikacija sama ucitava (iz asseta ili fajla) i njihovi stilovi: crkvenoslovenski fontovi
+    private static final Set<Typeface> APP_FACES =
+            Collections.synchronizedSet(Collections.newSetFromMap(new java.util.WeakHashMap<Typeface, Boolean>()));
+
+    static void noteAppFace(Typeface t) {
+        if (t != null && !creating) APP_FACES.add(t);
+    }
+
+    static boolean isAppFace(Typeface t) {
+        return t != null && APP_FACES.contains(t);
+    }
+
+    /** Stil (podebljano/kurziv) fonta aplikacije je isti font: bilježi se i izvedeni Typeface. */
+    static void noteDerived(Typeface base, Typeface result) {
+        if (isAppFace(base) && result != null) APP_FACES.add(result);
+    }
 
     private static final class Face {
         Typeface reg;
@@ -168,8 +194,13 @@ final class Fonts {
             try {
                 File[] c = cached(family);
                 if (c != null) {
-                    f.reg = Typeface.createFromFile(c[0]);
-                    if (c[1] != null) f.bold = Typeface.createFromFile(c[1]);
+                    creating = true;
+                    try {
+                        f.reg = Typeface.createFromFile(c[0]);
+                        if (c[1] != null) f.bold = Typeface.createFromFile(c[1]);
+                    } finally {
+                        creating = false;
+                    }
                 }
             } catch (Throwable t) {
                 XposedBridge.log(t);
@@ -297,6 +328,14 @@ final class Fonts {
         try {
             if (!Prefs.dark()) return;
             Object oldKey = tv.getTag(TAG_FKEY);
+            if (Prefs.keepSlavonic()) {   // tekst u crkvenoslovenskom fontu aplikacije ostaje kakav jeste
+                Object fo = tv.getTag(TAG_FORIG);
+                Typeface base = fo instanceof Typeface ? (Typeface) fo : tv.getTypeface();
+                if (isAppFace(base)) {
+                    if (oldKey != null) restore(tv);
+                    return;
+                }
+            }
             String fam = Prefs.font(key);
             int pct = Prefs.fontSize(key);
             if (fam == null && pct == 100) {
@@ -397,6 +436,10 @@ final class Fonts {
         if (!(k instanceof String)) return;
         Typeface in = (Typeface) args[0];
         if (isOurs(in)) return;
+        if (Prefs.keepSlavonic() && isAppFace(in)) {   // aplikacija postavlja crkvenoslovenski font: pusti ga
+            tv.setTag(TAG_FORIG, in);
+            return;
+        }
         int st = (in == null ? 0 : in.getStyle()) | (args.length > 1 ? ((Integer) args[1]).intValue() : 0);
         tv.setTag(TAG_FSTYLE, Integer.valueOf(st & 3));
         Typeface t = get((String) k, st);
@@ -418,7 +461,7 @@ final class Fonts {
     private static final String[][] WEB_RULES = {
             { "c_web_text", "html,body,body *", null },
             { "c_web_link", "a,a *", "a" },
-            { "c_title", "h1,h2,h3,h4,h1 *,h2 *,h3 *,h4 *,.color-red,.color-red *", "h1,h2,h3,h4,.color-red" },
+            { "c_title", "h1,h2,h3,h4,h5,h6,h1 *,h2 *,h3 *,h4 *,h5 *,h6 *,.title,.title *,.naslov,.naslov *,.color-red,.color-red *", "h1,h2,h3,h4,h5,h6,.title,.naslov,.color-red" },
             { "c_btn_text", "[data-dkb][data-dkb],[data-dkb][data-dkb] *", "[data-dkb][data-dkb]" },
     };
 
@@ -434,7 +477,7 @@ final class Fonts {
                 if (css != null) {
                     String fam = Prefs.font(r[0]);
                     if (done.add(fam)) faceDecl(faces, fam);
-                    rules.append(r[1]).append("{font-family:").append(css).append(" !important}\n");
+                    rules.append(excl(r[1])).append("{font-family:").append(css).append(" !important}\n");
                 }
                 int pct = Prefs.fontSize(r[0]);
                 if (r[2] != null && pct != 100) {
@@ -446,6 +489,17 @@ final class Fonts {
             XposedBridge.log(t);
             return "";
         }
+    }
+
+    /** Uz "ne mijenjaj crkvenoslovenske fontove": elementi sa crkvenoslovenskim slovima (oznaka data-dkcs) i njina deca se izuzimaju. */
+    private static String excl(String selectors) {
+        if (!Prefs.keepSlavonic()) return selectors;
+        StringBuilder b = new StringBuilder();
+        for (String sel : selectors.split(",")) {
+            if (b.length() > 0) b.append(',');
+            b.append(sel).append(":not([data-dkcs]):not([data-dkcs] *)");
+        }
+        return b.toString();
     }
 
     private static void faceDecl(StringBuilder sb, String fam) {
