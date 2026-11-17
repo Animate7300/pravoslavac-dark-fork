@@ -35,6 +35,8 @@ na „Preuzmi“):
    Podešavanja → Фонтови → „＋ Преузми фонтове…“.
 2. Pritisnite **Preuzmi** uz željeni font. Spisak sadrži samo fontove sa ćirilicom (ugrađen je kraći spisak; dugme
    „Osvježi spisak fontova sa Googlea“ povlači sve, a ima i pretragu). Font bez srpskih slova se odbacuje.
+   Svaki font se prije preuzimanja prikazuje u pregledu (pangram sa svim slovima srpske ćirilice); za pregled se
+   preuzima samo mali isječak (nekoliko KB, čuva se u kešu), a uz font bez nekog slova stoji upozorenje „⚠“.
 3. U tabu „Фонтови“ izaberite font i veličinu (50–200 %) za svaki tekst posebno, ili odjednom za ceo kalendar
    (prvi red „Цео календар“). Izmene se vide kad zatvorite podešavanja.
 
