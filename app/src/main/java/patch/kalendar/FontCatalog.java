@@ -12,6 +12,8 @@ final class FontCatalog {
     static final String PREFS_INDEX = "fonts_index";
     /** Prefiks postavki jednog fonta: "reg" i "bold" (base64 TTF) i "ver". */
     static final String PREFS_FONT = "font_";
+    /** Tekst pregleda fonta: pangram sa svim slovima srpske ćirilice (pregled odmah pokaže ako font nema neko slovo). */
+    static final String PREVIEW_TEXT = "Хаџи Ђера је заћутао и бацио чежњив поглед на шољу с кафом.";
     /** Lazni direktorij asseta preko kojeg se fontovi serviraju WebView stranicama. */
     static final String WEB_DIR = "__pdkfonts__";
 

@@ -1,6 +1,7 @@
 package patch.kalendar;
 
 import android.app.Activity;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -15,8 +16,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Ekran modula (otvara se iz LSPosed-a ili iz podesavanja u Pravoslavcu): preuzimanje ćiriličnih Google fontova.
@@ -27,12 +32,22 @@ public class MainActivity extends Activity {
 
     private static final int BG = 0xff121212;
     private static final int FG = 0xffe0e0e0;
-    private static final String SAMPLE = "Православни црквени календар 0123456789";
+    private static final String SAMPLE = FontCatalog.PREVIEW_TEXT;
 
     private final Set<String> busy = new HashSet<String>();
     private LinearLayout list;
     private TextView count;
     private String filter = "";
+    private ScrollView scroll;
+
+    // pregled fontova koji nisu preuzeti (mali isječci sa slovima pangrama, učitavaju se kad red postane vidljiv)
+    private final ExecutorService pool = Executors.newFixedThreadPool(3);
+    private final Map<String, TextView> samples = new HashMap<String, TextView>();
+    private final Map<String, TextView> names = new HashMap<String, TextView>();
+    private final Map<String, Typeface> faces = new HashMap<String, Typeface>();
+    private final Set<String> previewBusy = new HashSet<String>();
+    private final Set<String> previewFailed = new HashSet<String>();
+    private final Set<String> previewIncomplete = new HashSet<String>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +61,13 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
         sv.addView(root);
+        scroll = sv;
+        sv.getViewTreeObserver().addOnScrollChangedListener(new android.view.ViewTreeObserver.OnScrollChangedListener() {
+            @Override
+            public void onScrollChanged() {
+                loadVisiblePreviews();
+            }
+        });
 
         TextView info = new TextView(this);
         info.setText("Ovdje preuzimate ćirilične Google fontove (internet se koristi samo kad pritisnete „Preuzmi“).\n\n"
@@ -130,7 +152,21 @@ public class MainActivity extends Activity {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        pool.shutdownNow();
+    }
+
+    private String label(String fam, boolean has) {
+        String s = has ? fam + "  ✓" : fam;
+        if (!has && previewIncomplete.contains(fam)) s += "  ⚠ нема сва слова";
+        return s;
+    }
+
     private void rebuild() {
+        samples.clear();
+        names.clear();
         list.removeAllViews();
         java.util.List<String> have = FontStore.installed(this);
         String[] all = FontStore.catalog(this);
@@ -147,13 +183,15 @@ public class MainActivity extends Activity {
             LinearLayout left = new LinearLayout(this);
             left.setOrientation(LinearLayout.VERTICAL);
             TextView name = new TextView(this);
-            name.setText(has ? fam + "  ✓" : fam);
+            name.setText(label(fam, has));
+            names.put(fam, name);
             name.setTextSize(13f);
             name.setTextColor(has ? 0xff8ab4f8 : 0xff9aa0a6);
             left.addView(name);
             TextView sample = new TextView(this);
             sample.setText(SAMPLE);
-            sample.setTextSize(17f);
+            sample.setTextSize(16f);
+            samples.put(fam, sample);
             sample.setTextColor(FG);
             File lf = has ? FontStore.localFile(this, fam) : null;
             if (lf != null) {
@@ -163,7 +201,9 @@ public class MainActivity extends Activity {
                     // ostaje podrazumijevani font
                 }
             }
+            if (!has && faces.containsKey(fam)) sample.setTypeface(faces.get(fam));
             left.addView(sample);
+            row.setTag(fam);
             row.addView(left, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             final Button b = new Button(this);
@@ -185,6 +225,74 @@ public class MainActivity extends Activity {
             list.addView(row);
         }
         count.setText(shown + " / " + all.length + " fontova sa ćirilicom");
+        list.post(new Runnable() {
+            @Override
+            public void run() {
+                loadVisiblePreviews();
+            }
+        });
+    }
+
+    /** Pokreće učitavanje pregleda za redove koji su na ekranu (i za nekoliko redova ispod njih). */
+    private void loadVisiblePreviews() {
+        Rect r = new Rect();
+        int n = list.getChildCount();
+        for (int i = 0; i < n; i++) {
+            View row = list.getChildAt(i);
+            if (!row.getGlobalVisibleRect(r)) continue;
+            for (int k = i; k < Math.min(n, i + 4); k++) {
+                Object t = list.getChildAt(k).getTag();
+                if (t instanceof String) startPreview((String) t);
+            }
+        }
+    }
+
+    private void startPreview(final String fam) {
+        if (FontStore.installed(this).contains(fam)) return;   // preuzeti font se prikazuje cijeli
+        if (faces.containsKey(fam) || previewBusy.contains(fam) || previewFailed.contains(fam)) return;
+        File cached = FontStore.previewCached(this, fam);
+        if (cached != null) {
+            applyPreview(fam, cached, FontStore.previewComplete(cached));
+            return;
+        }
+        previewBusy.add(fam);
+        pool.execute(new Runnable() {
+            @Override
+            public void run() {
+                File f = null;
+                boolean ok = true;
+                try {
+                    f = FontStore.preview(MainActivity.this, fam);
+                    ok = FontStore.previewComplete(f);
+                } catch (Throwable e) {
+                    f = null;
+                }
+                final File ff = f;
+                final boolean fok = ok;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        previewBusy.remove(fam);
+                        if (ff == null) previewFailed.add(fam);
+                        else applyPreview(fam, ff, fok);
+                    }
+                });
+            }
+        });
+    }
+
+    private void applyPreview(String fam, File f, boolean complete) {
+        try {
+            Typeface tf = Typeface.createFromFile(f);
+            faces.put(fam, tf);
+            if (!complete) previewIncomplete.add(fam);
+            TextView s = samples.get(fam);
+            if (s != null) s.setTypeface(tf);
+            TextView nm = names.get(fam);
+            if (nm != null) nm.setText(label(fam, false));
+        } catch (Throwable e) {
+            previewFailed.add(fam);
+        }
     }
 
     private void refreshCatalog(final Button b) {

@@ -174,6 +174,56 @@ final class FontStore {
         }
     }
 
+    // ------------------------------------------------------------------ pregled prije preuzimanja
+
+    private static File previewDir(Context c) {
+        return new File(c.getCacheDir(), "fontprev");
+    }
+
+    /** Već preuzet isječak za pregled (iz keša), ili null. */
+    static File previewCached(Context c, String family) {
+        File f = new File(previewDir(c), FontCatalog.slug(family) + ".ttf");
+        return f.isFile() && f.length() > 0 ? f : null;
+    }
+
+    /**
+     * Preuzima mali isječak fonta samo sa slovima teksta pregleda (nekoliko KB) i čuva ga u kešu; cijeli font se
+     * preuzima tek pri izboru. Blokira: pozivati sa pozadinske niti.
+     */
+    static File preview(Context c, String family) throws Exception {
+        File cached = previewCached(c, family);
+        if (cached != null) return cached;
+        String css = new String(get("https://fonts.googleapis.com/css2?family=" + URLEncoder.encode(family, "UTF-8")
+                + "&text=" + URLEncoder.encode(FontCatalog.PREVIEW_TEXT, "UTF-8")), "UTF-8");
+        Matcher u = Pattern.compile("url\\(([^)]+)\\)").matcher(css);
+        if (!u.find()) throw new IOException("Nema isječka fonta");
+        String url = u.group(1).replace("'", "").replace("\"", "").trim();
+        byte[] data = get(url);
+        File d = previewDir(c);
+        d.mkdirs();
+        File f = new File(d, FontCatalog.slug(family) + ".ttf");
+        write(f, data);
+        return f;
+    }
+
+    /** Da li isječak sadrži sva slova teksta pregleda (Android 6+; ranije se ne provjerava). */
+    static boolean previewComplete(File f) {
+        if (Build.VERSION.SDK_INT < 23) return true;
+        try {
+            Paint p = new Paint();
+            p.setTypeface(Typeface.createFromFile(f));
+            String t = FontCatalog.PREVIEW_TEXT;
+            for (int i = 0; i < t.length(); i++) {
+                char ch = t.charAt(i);
+                if (ch == ' ' || ch == '.') continue;
+                if (!p.hasGlyph(String.valueOf(ch))) return false;
+            }
+            return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
     /** Preuzima font (blokira: pozivati sa pozadinske niti). Baca izuzetak sa porukom ako ne uspije. */
     static void download(Context c, String family) throws Exception {
         String enc = URLEncoder.encode(family, "UTF-8");
