@@ -908,6 +908,12 @@ final class Dark {
      */
     static void styleMenu(View v, boolean stable) {
         if (v == null || !Prefs.dark()) return;
+        styleMenuTree(v, stable);
+        alignMenuRow(v);
+    }
+
+    private static void styleMenuTree(View v, boolean stable) {
+        if (v == null || !Prefs.dark()) return;
         try {
             if (v instanceof TextView) {
                 TextView tv = (TextView) v;
@@ -927,7 +933,92 @@ final class Dark {
             }
             if (v instanceof ViewGroup) {
                 ViewGroup g = (ViewGroup) v;
-                for (int i = 0; i < g.getChildCount(); i++) styleMenu(g.getChildAt(i), stable);
+                for (int i = 0; i < g.getChildCount(); i++) styleMenuTree(g.getChildAt(i), stable);
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    // ------------------------------------------------------------------ poravnanje ikonica i teksta u meniju
+
+    private static final int TAG_MENUALIGN = 0x7e0c0a31;
+
+    /** Ikonice (i strelicu) reda menija poravnava po vertikali sa sredinom slova glavnog teksta reda. */
+    static void alignMenuRow(final View row) {
+        if (!(row instanceof ViewGroup)) return;
+        try {
+            if (row.getTag(TAG_MENUALIGN) == null) {
+                row.setTag(TAG_MENUALIGN, Boolean.TRUE);
+                row.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+                    @Override
+                    public void onLayoutChange(View v, int l, int t, int r, int b, int ol, int ot, int or, int ob) {
+                        doAlignMenuRow(v);
+                    }
+                });
+            }
+            doAlignMenuRow(row);
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    private static void collectRowViews(View v, java.util.List<TextView> tvs, java.util.List<ImageView> ivs) {
+        if (v.getVisibility() == View.GONE) return;
+        if (v instanceof TextView) {
+            TextView tv = (TextView) v;
+            if (tv.getText() != null && tv.getText().length() > 0) tvs.add(tv);
+        } else if (v instanceof ImageView) {
+            ivs.add((ImageView) v);
+        }
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) collectRowViews(g.getChildAt(i), tvs, ivs);
+        }
+    }
+
+    /** Pomak gornje ivice view-a u odnosu na red (bez translationY). */
+    private static int topInRow(View v, View row) {
+        int y = 0;
+        View c = v;
+        while (c != null && c != row) {
+            y += c.getTop();
+            Object p = c.getParent();
+            if (!(p instanceof View)) return Integer.MIN_VALUE;
+            View pv = (View) p;
+            if (pv != row) y -= pv.getScrollY();
+            c = pv;
+        }
+        return c == row ? y : Integer.MIN_VALUE;
+    }
+
+    private static void doAlignMenuRow(View row) {
+        try {
+            if (!Prefs.dark() || row.getHeight() <= 0) return;
+            java.util.List<TextView> tvs = new java.util.ArrayList<TextView>();
+            java.util.List<ImageView> ivs = new java.util.ArrayList<ImageView>();
+            collectRowViews(row, tvs, ivs);
+            if (tvs.isEmpty() || ivs.isEmpty()) return;
+            TextView main = tvs.get(0);
+            for (TextView t : tvs) {
+                if (t.getTextSize() > main.getTextSize()) main = t;
+            }
+            if (main.getLayout() == null || main.getHeight() <= 0) return;
+            int base = main.getBaseline();
+            if (base < 0) return;
+            int mt = topInRow(main, row);
+            if (mt == Integer.MIN_VALUE) return;
+            Rect cap = new Rect();
+            main.getPaint().getTextBounds("\u041c\u041e", 0, 2, cap);   // visina velikih slova (ћирилица)
+            float textCenter = mt + base - cap.height() / 2f;
+            for (ImageView iv : ivs) {
+                if (iv.getHeight() <= 0) continue;
+                if (iv.getHeight() >= row.getHeight() * 0.9f && iv.getWidth() >= row.getWidth() * 0.9f) continue;
+                int it = topInRow(iv, row);
+                if (it == Integer.MIN_VALUE) continue;
+                float iconCenter = it + iv.getHeight() / 2f;
+                float dy = textCenter - iconCenter;
+                if (Math.abs(iv.getTranslationY() - dy) > 0.5f) iv.setTranslationY(dy);
             }
         } catch (Throwable t) {
             XposedBridge.log(t);
