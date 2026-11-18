@@ -420,6 +420,8 @@ final class SettingsUi {
 
     private TextView label(String s, float size, int color) {
         TextView tv = new TextView(act);
+        // oznaka PRIJE setText: tekst jos nema roditelja, pa bi hook prepoznao "Постови" kao oznaku iz kalendara
+        tv.setTag(Dark.TAG_SETTINGS, Boolean.TRUE);
         tv.setText(s);
         tv.setTextSize(size);
         tv.setTextColor(color);
@@ -1426,6 +1428,7 @@ final class SettingsUi {
                 .setNeutralButton(" ", null) // tekst se ispod zamjenjuje ikonicom (prazan tekst bi sakrio dugme)
                 .create();
         // pozadina editora boja je c_bg, a slova su c_text (naslov i dugmad se boje izricito)
+        d.getWindow().getDecorView().setTag(Dark.TAG_SETTINGS, Boolean.TRUE);
         d.getWindow().setBackgroundDrawable(windowBg(dp(8)));
         d.show();
         int tid = act.getResources().getIdentifier("alertTitle", "id", "android");
@@ -1495,6 +1498,7 @@ final class SettingsUi {
         row.setPadding(0, dp(2), 0, dp(2));
 
         TextView tv = new TextView(act);
+        tv.setTag(Dark.TAG_SETTINGS, Boolean.TRUE);   // prije setText (vidi label()): inace "Постови" dobije boju postova
         tv.setText(label);
         tv.setTextSize(15f);
         tv.setTextColor(text());

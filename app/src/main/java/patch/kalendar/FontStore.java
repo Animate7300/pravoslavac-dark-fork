@@ -57,10 +57,42 @@ final class FontStore {
     /** Spisak fontova sa ćirilicom: osvježen sa Googlea ako je osvježavan, inače ugrađeni (FontCatalog.FAMILIES). */
     static String[] catalog(Context c) {
         String s = c.getSharedPreferences(CATALOG_PREFS, Context.MODE_PRIVATE).getString("list", "");
-        if (s.length() == 0) return FontCatalog.FAMILIES;
-        String[] a = s.split("\\|");
-        Arrays.sort(a, String.CASE_INSENSITIVE_ORDER);
-        return a;
+        String[] a = s.length() == 0 ? FontCatalog.FAMILIES : s.split("\\|");
+        List<String> out = new ArrayList<String>();
+        for (String f : a) {
+            if (!excluded(f)) out.add(f);
+        }
+        String[] r = out.toArray(new String[0]);
+        if (s.length() > 0) Arrays.sort(r, String.CASE_INSENSITIVE_ORDER);
+        return r;
+    }
+
+    /** Familije koje se nikad ne nude: "Flow ..." (Flow Block, Flow Circular, Flow Rounded) nemaju slova, samo crtice. */
+    static boolean excluded(String family) {
+        return family.regionMatches(true, 0, "Flow", 0, 4);
+    }
+
+    private static final String BAD_KEY = "bad";
+
+    /** Fontovi ciji je pregled pokazao da nemaju sva srpska slova (pamte se, pa se ne nude ni poslije ponovnog pokretanja). */
+    static java.util.Set<String> badPreviews(Context c) {
+        java.util.Set<String> out = new java.util.HashSet<String>();
+        String s = c.getSharedPreferences(CATALOG_PREFS, Context.MODE_PRIVATE).getString(BAD_KEY, "");
+        for (String f : s.split("\\|")) {
+            if (f.length() > 0) out.add(f);
+        }
+        return out;
+    }
+
+    static void markBad(Context c, String family) {
+        java.util.Set<String> bad = badPreviews(c);
+        if (!bad.add(family)) return;
+        StringBuilder sb = new StringBuilder();
+        for (String f : bad) {
+            if (sb.length() > 0) sb.append('|');
+            sb.append(f);
+        }
+        c.getSharedPreferences(CATALOG_PREFS, Context.MODE_PRIVATE).edit().putString(BAD_KEY, sb.toString()).commit();
     }
 
     /** Preuzima spisak svih Google fontova i čuva one sa podskupom "cyrillic". Vraća broj fontova. Blokira. */
@@ -159,8 +191,14 @@ final class FontStore {
         }
     }
 
-    /** Provjera da font ima sva ćirilična slova koja srpski tekst koristi (Android 6+; ranije se ne provjerava). */
+    /**
+     * Provjera da font ima sva ćirilična slova koja srpski tekst koristi (Ж Ђ Ћ Џ Ј Љ Њ i mala), citanjem tabele cmap
+     * iz fajla (pouzdano na svim verzijama; Paint.hasGlyph() racuna i sistemske rezervne fontove).
+     */
     private static boolean hasCyrillic(File f) {
+        Boolean r = FontGlyphs.hasAll(f, FontGlyphs.SERBIAN);
+        if (r != null) return r.booleanValue();
+        // cmap se ne moze procitati: stara provjera (Android 6+)
         if (Build.VERSION.SDK_INT < 23) return true;
         try {
             Paint p = new Paint();
@@ -172,6 +210,21 @@ final class FontStore {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /** Brise preuzete fontove koji nemaju sva srpska slova (npr. preuzete prije stroge provjere). Vraca broj obrisanih. */
+    static int purgeIncomplete(Context c) {
+        int n = 0;
+        for (String fam : installed(c)) {
+            File f = localFile(c, fam);
+            if (f == null) continue;
+            Boolean r = FontGlyphs.hasAll(f, FontGlyphs.SERBIAN);
+            if (r != null && !r.booleanValue()) {
+                delete(c, fam);
+                n++;
+            }
+        }
+        return n;
     }
 
     // ------------------------------------------------------------------ pregled prije preuzimanja
@@ -208,6 +261,8 @@ final class FontStore {
 
     /** Da li isječak sadrži sva slova teksta pregleda (Android 6+; ranije se ne provjerava). */
     static boolean previewComplete(File f) {
+        Boolean r = FontGlyphs.hasAllOf(f, FontCatalog.PREVIEW_TEXT);
+        if (r != null) return r.booleanValue();
         if (Build.VERSION.SDK_INT < 23) return true;
         try {
             Paint p = new Paint();

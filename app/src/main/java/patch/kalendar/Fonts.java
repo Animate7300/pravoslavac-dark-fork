@@ -94,13 +94,34 @@ final class Fonts {
         try {
             String s = index().getString("list", "");
             for (String f : s.split("\\|")) {
-                if (f.length() > 0) out.add(f);
+                if (f.length() > 0 && hasSerbianLetters(f)) out.add(f);   // samo fontovi koji zaista imaju ђ ћ џ љ њ...
             }
         } catch (Throwable t) {
             XposedBridge.log(t);
         }
         Collections.sort(out, String.CASE_INSENSITIVE_ORDER);   // azbucni red
         return out;
+    }
+
+    /** Rezultat provjere srpskih slova po fontu i verziji (kljuc: slug + ":" + verzija). */
+    private static final Map<String, Boolean> SERBIAN_OK = new HashMap<String, Boolean>();
+
+    /** Font ima sva srpska slova (Ж Ђ Ћ Џ Ј Љ Њ i mala)? Ako se ne moze provjeriti, smatra se da ima. */
+    private static synchronized boolean hasSerbianLetters(String family) {
+        try {
+            String slug = FontCatalog.slug(family);
+            String key = slug + ":" + index().getLong("v_" + slug, 0L);
+            Boolean ok = SERBIAN_OK.get(key);
+            if (ok != null) return ok.booleanValue();
+            File[] c = cached(family);
+            if (c == null) return true;
+            Boolean r = FontGlyphs.hasAll(c[0], FontGlyphs.SERBIAN);
+            boolean res = r == null || r.booleanValue();
+            SERBIAN_OK.put(key, Boolean.valueOf(res));
+            return res;
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
     /** Ponovo ucitaj spisak i fontove (poslije promjene izbora ili novog preuzimanja). */
@@ -192,7 +213,7 @@ final class Fonts {
         if (f == null) {
             f = new Face();
             try {
-                File[] c = cached(family);
+                File[] c = hasSerbianLetters(family) ? cached(family) : null;
                 if (c != null) {
                     creating = true;
                     try {

@@ -48,11 +48,13 @@ public class MainActivity extends Activity {
     private final Set<String> previewBusy = new HashSet<String>();
     private final Set<String> previewFailed = new HashSet<String>();
     private final Set<String> previewIncomplete = new HashSet<String>();
+    private int shownCount;   // redova u listi
+    private int totalCount;   // fontova koji se nude (bez izbacenih i bez onih kojima pregled pokaze da nemaju srpska slova)
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Pravoslavac Dark – fontovi");
+        setTitle("Православац Дарк – фонтови");
 
         int pad = dp(16);
         ScrollView sv = new ScrollView(this);
@@ -70,16 +72,16 @@ public class MainActivity extends Activity {
         });
 
         TextView info = new TextView(this);
-        info.setText("Ovdje preuzimate ćirilične Google fontove (internet se koristi samo kad pritisnete „Preuzmi“).\n\n"
-                + "Font za svaki tekst birate u aplikaciji Pravoslavac (ili Житије светих): "
-                + "Meni → Podešavanja → Teme → uz boju iz grupe „Текст“ pritisnite „Фонт“.");
+        info.setText("Овдје преузимате ћириличне Гугл фонтове (интернет се користи само када притиснете „Преузми“).\n\n"
+                + "Фонт за сваки текст бирате у апликацији Православац (или Житије светих): "
+                + "Мени → Подешавања → Теме → уз боју из групе „Текст“ притисните „Фонт“.");
         info.setTextSize(15f);
         info.setTextColor(FG);
         info.setPadding(0, 0, 0, pad);
         root.addView(info);
 
         final Button refresh = new Button(this);
-        refresh.setText("Osvježi spisak fontova sa Googlea");
+        refresh.setText("Освјежи списак фонтова са Гугла");
         refresh.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -89,32 +91,32 @@ public class MainActivity extends Activity {
         root.addView(refresh);
 
         final Button delAll = new Button(this);
-        delAll.setText("Obriši sve preuzete fontove");
+        delAll.setText("Обриши све преузете фонтове");
         delAll.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (FontStore.installed(MainActivity.this).isEmpty()) {
-                    Toast.makeText(MainActivity.this, "Nema preuzetih fontova", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Нема преузетих фонтова", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 new android.app.AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Obrisati sve preuzete fontove?")
-                        .setMessage("Tekstovi koji ih koriste vratiće se na originalni font.")
-                        .setPositiveButton("Obriši", new android.content.DialogInterface.OnClickListener() {
+                        .setTitle("Обрисати све преузете фонтове?")
+                        .setMessage("Текстови који их користе вратиће се на оригинални фонт.")
+                        .setPositiveButton("Обриши", new android.content.DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(android.content.DialogInterface d, int w) {
                                 FontStore.deleteAll(MainActivity.this);
                                 rebuild();
                             }
                         })
-                        .setNegativeButton("Odustani", null)
+                        .setNegativeButton("Одустани", null)
                         .show();
             }
         });
         root.addView(delAll);
 
         EditText search = new EditText(this);
-        search.setHint("Pretraga");
+        search.setHint("Претрага");
         search.setSingleLine(true);
         search.setTextColor(FG);
         search.setHintTextColor(0xff777777);
@@ -145,6 +147,7 @@ public class MainActivity extends Activity {
         list.setOrientation(LinearLayout.VERTICAL);
         root.addView(list);
         setContentView(sv);
+        FontStore.purgeIncomplete(this);   // ranije preuzeti fontovi bez slova ђ ћ џ љ њ... se uklanjaju
         rebuild();
     }
 
@@ -170,11 +173,15 @@ public class MainActivity extends Activity {
         list.removeAllViews();
         java.util.List<String> have = FontStore.installed(this);
         String[] all = FontStore.catalog(this);
-        int shown = 0;
+        java.util.Set<String> bad = FontStore.badPreviews(this);
+        shownCount = 0;
+        totalCount = 0;
         for (final String fam : all) {
-            if (filter.length() > 0 && !fam.toLowerCase(java.util.Locale.ROOT).contains(filter)) continue;
-            shown++;
             final boolean has = have.contains(fam);
+            if (!has && bad.contains(fam)) continue;   // pregled je pokazao da nema sva srpska slova
+            totalCount++;
+            if (filter.length() > 0 && !fam.toLowerCase(java.util.Locale.ROOT).contains(filter)) continue;
+            shownCount++;
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -208,7 +215,7 @@ public class MainActivity extends Activity {
 
             final Button b = new Button(this);
             boolean working = busy.contains(fam);
-            b.setText(working ? "…" : has ? "Obriši" : "Preuzmi");
+            b.setText(working ? "…" : has ? "Обриши" : "Преузми");
             b.setEnabled(!working);
             b.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -224,7 +231,7 @@ public class MainActivity extends Activity {
             row.addView(b);
             list.addView(row);
         }
-        count.setText(shown + " / " + all.length + " fontova sa ćirilicom");
+        updateCount();
         list.post(new Runnable() {
             @Override
             public void run() {
@@ -233,18 +240,48 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void updateCount() {
+        count.setText(shownCount + " / " + totalCount + " фонтова са ћирилицом");
+    }
+
     /** Pokreće učitavanje pregleda za redove koji su na ekranu (i za nekoliko redova ispod njih). */
     private void loadVisiblePreviews() {
         Rect r = new Rect();
         int n = list.getChildCount();
+        java.util.List<String> todo = new java.util.ArrayList<String>();
         for (int i = 0; i < n; i++) {
             View row = list.getChildAt(i);
             if (!row.getGlobalVisibleRect(r)) continue;
             for (int k = i; k < Math.min(n, i + 4); k++) {
                 Object t = list.getChildAt(k).getTag();
-                if (t instanceof String) startPreview((String) t);
+                if (t instanceof String && !todo.contains(t)) todo.add((String) t);
             }
         }
+        // poslije petlje: startPreview moze ukloniti red (font bez srpskih slova), a to mijenja listu
+        for (String fam : todo) startPreview(fam);
+    }
+
+    /** Font ciji pregled nema sva srpska slova nestaje sa spiska (i pamti se, da se ne nudi ni poslije). */
+    private void hideFamily(String fam) {
+        FontStore.markBad(this, fam);
+        samples.remove(fam);
+        names.remove(fam);
+        faces.remove(fam);
+        for (int i = 0; i < list.getChildCount(); i++) {
+            if (fam.equals(list.getChildAt(i).getTag())) {
+                list.removeViewAt(i);
+                shownCount--;
+                totalCount--;
+                break;
+            }
+        }
+        updateCount();
+        list.post(new Runnable() {
+            @Override
+            public void run() {
+                loadVisiblePreviews();
+            }
+        });
     }
 
     private void startPreview(final String fam) {
@@ -283,9 +320,12 @@ public class MainActivity extends Activity {
 
     private void applyPreview(String fam, File f, boolean complete) {
         try {
+            if (!complete) {
+                hideFamily(fam);
+                return;
+            }
             Typeface tf = Typeface.createFromFile(f);
             faces.put(fam, tf);
-            if (!complete) previewIncomplete.add(fam);
             TextView s = samples.get(fam);
             if (s != null) s.setTypeface(tf);
             TextView nm = names.get(fam);
@@ -295,9 +335,18 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** фонт / фонта / фонтова (уз број). */
+    private static String fontWord(int n) {
+        int m10 = n % 10;
+        int m100 = n % 100;
+        if (m10 == 1 && m100 != 11) return "фонт";
+        if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "фонта";
+        return "фонтова";
+    }
+
     private void refreshCatalog(final Button b) {
         b.setEnabled(false);
-        b.setText("Osvježavam…");
+        b.setText("Освјежавам…");
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -314,10 +363,11 @@ public class MainActivity extends Activity {
                     @Override
                     public void run() {
                         b.setEnabled(true);
-                        b.setText("Osvježi spisak fontova sa Googlea");
+                        b.setText("Освјежи списак фонтова са Гугла");
                         rebuild();
                         Toast.makeText(MainActivity.this,
-                                fe == null ? "Spisak osvježen: " + fn + " fontova" : "Greška: " + fe,
+                                fe == null ? "Списак освјежен на " + totalCount + " " + fontWord(totalCount)
+                                        : "Грешка: " + fe,
                                 Toast.LENGTH_LONG).show();
                     }
                 });
@@ -344,7 +394,7 @@ public class MainActivity extends Activity {
                         busy.remove(fam);
                         rebuild();
                         Toast.makeText(MainActivity.this,
-                                fe == null ? fam + ": preuzeto" : fam + ": " + fe, Toast.LENGTH_LONG).show();
+                                fe == null ? fam + ": преузето" : fam + ": " + fe, Toast.LENGTH_LONG).show();
                     }
                 });
             }
