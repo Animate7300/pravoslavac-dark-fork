@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
         TextView info = new TextView(this);
         info.setText("Овдје преузимате ћириличне Гугл фонтове (интернет се користи само када притиснете „Преузми“).\n\n"
                 + "Фонт за сваки текст бирате у апликацији Православац (или Житије светих): "
-                + "Мени → Подешавања → Теме → уз боју из групе „Текст“ притисните „Фонт“.");
+                + "Мени → Подешавања → Фонтови");
         info.setTextSize(15f);
         info.setTextColor(FG);
         info.setPadding(0, 0, 0, pad);
