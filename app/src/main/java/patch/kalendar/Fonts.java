@@ -463,6 +463,7 @@ final class Fonts {
             { "c_web_link", "a,a *", "a" },
             { "c_title", "h1,h2,h3,h4,h5,h6,h1 *,h2 *,h3 *,h4 *,h5 *,h6 *,.title,.title *,.naslov,.naslov *,.color-red,.color-red *", "h1,h2,h3,h4,h5,h6,.title,.naslov,.color-red" },
             { "c_btn_text", "[data-dkb][data-dkb],[data-dkb][data-dkb] *", "[data-dkb][data-dkb]" },
+            { "c_web_mark", null, null },
     };
 
     /** CSS sa @font-face i pravilima font-family za tekstove u WebView-u (prazno ako nije izabran nijedan font). */
@@ -477,7 +478,9 @@ final class Fonts {
                 if (css != null) {
                     String fam = Prefs.font(r[0]);
                     if (done.add(fam)) faceDecl(faces, fam);
-                    rules.append(excl(r[1])).append("{font-family:").append(css).append(" !important}\n");
+                    if (r[1] != null) {
+                        rules.append(excl(r[1])).append("{font-family:").append(css).append(" !important}\n");
+                    }
                 }
                 int pct = Prefs.fontSize(r[0]);
                 if (r[2] != null && pct != 100) {

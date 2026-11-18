@@ -116,6 +116,7 @@ final class SettingsUi {
     private void open() {
         loadThemes();
         host = new Host(act);
+        host.setTag(Dark.TAG_SETTINGS, Boolean.TRUE);
         host.setClickable(true);
         host.setFocusableInTouchMode(true);
         build();
@@ -677,10 +678,6 @@ final class SettingsUi {
         hint.setPadding(0, dp(8), 0, dp(4));
         root.addView(hint);
 
-        root.addView(makeSwitch("Не мењај црквенословенске фонтове",
-                "Изузима црквенословенске фонтове (triodion-ieUcs и IrmolSkun_0).",
-                Prefs.KEY_KEEP_CS, true));
-
         TextView dl = label("＋ Преузми фонтове…", 16f, text());
         dl.setPadding(0, dp(8), 0, dp(12));
         dl.setOnClickListener(new View.OnClickListener() {
@@ -964,6 +961,9 @@ final class SettingsUi {
     /** Prikazuje dijalog sa bojama teme: pozadina i obrub prozora, boje naslova, poruke i dugmadi. */
     private AlertDialog showStyled(AlertDialog.Builder b) {
         AlertDialog d = b.create();
+        if (d.getWindow() != null && d.getWindow().getDecorView() != null) {
+            d.getWindow().getDecorView().setTag(Dark.TAG_SETTINGS, Boolean.TRUE);
+        }
         d.getWindow().setBackgroundDrawable(windowBg(dp(8)));
         d.show();
         int tid = act.getResources().getIdentifier("alertTitle", "id", "android");

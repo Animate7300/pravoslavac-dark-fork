@@ -426,8 +426,24 @@ final class Dark {
         return "c_holiday".equals(fgKey(orig)) || (tv.getCurrentTextColor() & 0xffffff) == (HOLIDAY & 0xffffff);
     }
 
+    static final int TAG_SETTINGS = 0x7e0c0a0e;
+
+    static boolean inSettings(View v) {
+        if (v == null) return false;
+        try {
+            for (View p = v; p != null; p = p.getParent() instanceof View ? (View) p.getParent() : null) {
+                if (p.getTag(TAG_SETTINGS) != null) return true;
+                String name = p.getClass().getName();
+                if (name.contains("SettingsUi") || name.contains("ColorPicker")) return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
     /** Font i boja za tekst koji je datum, dan ili oznaka; vraća ključ ili null (tada tekst nije ništa od toga). */
     static String applyTextRole(TextView tv, CharSequence cs) {
+        if (inSettings(tv)) return null;
         String tk = textRole(cs);
         if (tk == null) {
             if (tv.getTag(TAG_TROLE) != null) tv.setTag(TAG_TROLE, null);
@@ -1139,6 +1155,7 @@ final class Dark {
     }
 
     private static void fixOne(View v) {
+        if (inSettings(v)) return;
         fixBackground(v);
         if (v.getClass().getName().endsWith("TabLayout")) {
             try {
@@ -1260,6 +1277,7 @@ final class Dark {
 
     /** Prolazi kroz hijerarhiju view-ova i popravlja boje. */
     static void walk(View v) {
+        if (inSettings(v)) return;
         try {
             fixOne(v);
             if (v instanceof ViewGroup) {
@@ -1275,6 +1293,7 @@ final class Dark {
 
     /** Tekst koji se postavlja u TextView: trake kalendara (nedelja, mesec, naslov) imaju svoje boje, ostalo opste. */
     static CharSequence fixText(TextView tv, CharSequence cs) {
+        if (inSettings(tv)) return cs;
         String rk = roleKey(tv);
         int role = colorOfKey(rk);
         if (role == 0 && isCalTitleText(cs)) {

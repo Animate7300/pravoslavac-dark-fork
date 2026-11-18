@@ -37,12 +37,27 @@ final class Assets {
         return b.toString();
     }
 
-    /** Zajednicki dio skripti: prepoznavanje i bojenje dugmadi "претходно / календар / следеће". */
+    /** Zajednicki dio skripti: prepoznavanje i bojenje dugmadi (претходно / календар / садржај / следеће...). */
+    private static final String[] NAV_WORDS = {
+            "претходно", "претходна",
+            "следеће", "следећа",
+            "календар", "садржај",
+    };
+
+    private static String navWordsJs() {
+        StringBuilder b = new StringBuilder("var W={");
+        for (int i = 0; i < NAV_WORDS.length; i++) {
+            if (i > 0) b.append(',');
+            b.append('\'').append(u(NAV_WORDS[i])).append("':1");
+        }
+        b.append("};");
+        return b.toString();
+    }
+
     private static final String NAV_CORE =
-            "var W=['@W0@','@W1@','@W2@','@W3@'];"
-            + "var BL={TD:1,TH:1,TR:1,TABLE:1,TBODY:1,THEAD:1,TFOOT:1,LI:1,UL:1,OL:1,P:1,FORM:1,BODY:1,HTML:1,CENTER:1,SECTION:1,ARTICLE:1,MAIN:1,HEADER:1,FOOTER:1,NAV:1};"
+            "var BL={TD:1,TH:1,TR:1,TABLE:1,TBODY:1,THEAD:1,TFOOT:1,LI:1,UL:1,OL:1,P:1,FORM:1,BODY:1,HTML:1,CENTER:1,SECTION:1,ARTICLE:1,MAIN:1,HEADER:1,FOOTER:1,NAV:1};"
             + "var IT={A:1,BUTTON:1,INPUT:1};"
-            + "function isNav(e){try{if(e.nodeType!==1)return false;if(e.childElementCount>3)return false;var r=(e.value||e.textContent||'');if(r.length>400)return false;var b=/[<>\\[\\]\\u00ab\\u00bb]/.test(r);var t=r.replace(/[<>\\[\\]\\u00ab\\u00bb]/g,'').replace(/\\s+/g,' ').trim().toLowerCase();if(t===W[0]||t===W[1]||t===W[3])return true;if(t===W[2]&&b)return true;}catch(x){}return false;}"
+            + "function isNav(e){try{if(e.nodeType!==1)return false;if(e.childElementCount>3)return false;var r=(e.value||e.textContent||'');if(r.length>400)return false;var t=r.replace(/[<>\\[\\]\\u00ab\\u00bb\\u2039\\u203a\\u2190\\u2192\\u25c4\\u25ba]/g,'').replace(/\\s+/g,' ').trim().toLowerCase();if(W[t]===1)return true;}catch(x){}return false;}"
             + "function looks(p){try{var c=getComputedStyle(p);return c.backgroundImage!=='none'||parseFloat(c.borderTopWidth)>0||parseFloat(c.borderTopLeftRadius)>0||c.boxShadow!=='none';}catch(x){return false;}}"
             + "function isBtn(e){if(!isNav(e))return false;var t=e.tagName;if(BL[t])return false;if(IT[t])return true;return looks(e);}"
             + "function mark(e){try{e.setAttribute('data-dkb','1');var s=e.style;s.setProperty('background-color','@BTNBG@','important');s.setProperty('background-image','none','important');s.setProperty('color','@BTNTEXT@','important');s.setProperty('border-color','@BTNBORDER@','important');s.setProperty('outline-color','@BTNBORDER@','important');}catch(x){}}"
@@ -59,9 +74,10 @@ final class Assets {
             + "function csText(n){try{var p=n.parentNode;if(isCsNode(n,p))tagCs(p);}catch(x){}}";
 
     private static String navCore() {
-        return "var CS=" + (Prefs.keepSlavonic() ? "true" : "false") + ";" + CS_JS + NAV_CORE.replace("@W0@", u("претходно")).replace("@W1@", u("предходно")).replace("@W2@", u("календар"))
-                .replace("@W3@", u("следеће")).replace("@BTNBG@", hex(Dark.BTN_BG))
-                .replace("@BTNTEXT@", hex(Dark.BTN_TEXT)).replace("@BTNBORDER@", hex(Dark.BTN_BORDER));
+        return "var CS=" + (Prefs.keepSlavonic() ? "true" : "false") + ";" + CS_JS + navWordsJs() + NAV_CORE
+                .replace("@BTNBG@", hex(Dark.BTN_BG))
+                .replace("@BTNTEXT@", hex(Dark.BTN_TEXT))
+                .replace("@BTNBORDER@", hex(Dark.BTN_BORDER));
     }
 
     private static final String NAV_OBSERVER =
