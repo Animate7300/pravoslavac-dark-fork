@@ -22,19 +22,7 @@ final class FontCatalog {
      * pa pogrešan unos ovdje samo daje poruku o grešci pri preuzimanju.
      */
     static final String[] FAMILIES = {
-            "Alegreya", "Alegreya Sans", "Alice", "Amatic SC", "Andika", "Anonymous Pro", "Arimo", "Arsenal",
-            "Bad Script", "Bitter", "Caveat", "Comfortaa", "Commissioner", "Cormorant", "Cormorant Garamond",
-            "Cousine", "Cuprum", "Didact Gothic", "EB Garamond", "Exo 2", "Fira Mono", "Fira Sans",
-            "Fira Sans Condensed", "Forum", "Gentium Book Plus", "Gentium Plus", "Golos Text", "IBM Plex Mono",
-            "IBM Plex Sans", "IBM Plex Serif", "Inter", "Istok Web", "JetBrains Mono", "Jost", "Jura", "Kurale",
-            "Ledger", "Lexend", "Literata", "Lobster", "Lora", "Manrope", "Marck Script", "Marmelad",
-            "Merriweather", "Merriweather Sans", "Montserrat", "Mulish", "Neucha", "Noto Sans", "Noto Serif",
-            "Nunito", "Nunito Sans", "Old Standard TT", "Onest", "Open Sans", "Oranienbaum", "Oswald", "Pacifico",
-            "Pangolin", "Philosopher", "Play", "Playfair Display", "Playfair Display SC", "Poiret One",
-            "Prosto One", "PT Mono", "PT Sans", "PT Sans Narrow", "PT Serif", "Raleway", "Roboto",
-            "Roboto Condensed", "Roboto Mono", "Roboto Slab", "Rubik", "Russo One", "Scada", "Source Code Pro",
-            "Source Sans 3", "Source Serif 4", "Spectral", "Tenor Sans", "Tinos", "Ubuntu", "Ubuntu Condensed",
-            "Underdog", "Vollkorn", "Yeseva One",
+            "Alice", "Balsamiq Sans", "Gabriela",
     };
 
     /** "Open Sans" -> "open_sans" (ime fajla i CSS familije). */

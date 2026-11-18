@@ -236,12 +236,35 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 loadVisiblePreviews();
+                checkAllPreviews();
             }
         });
     }
 
+    /** Broj fontova koji još nisu provjereni (nisu preuzeti, nisu izbačeni, pregled još nije gotov). */
+    private int pendingChecks() {
+        java.util.List<String> have = FontStore.installed(this);
+        java.util.Set<String> bad = FontStore.badPreviews(this);
+        int n = 0;
+        for (String fam : FontStore.catalog(this)) {
+            if (have.contains(fam) || bad.contains(fam) || faces.containsKey(fam) || previewFailed.contains(fam)) continue;
+            n++;
+        }
+        return n;
+    }
+
     private void updateCount() {
-        count.setText(shownCount + " / " + totalCount + " фонтова са ћирилицом");
+        if (pendingChecks() > 0) {
+            count.setText("Брисање фонтова који немају српска слова ћ, ђ, љ, њ, џ…");
+        } else {
+            count.setText(totalCount + " " + fontWord(totalCount) + " са српском ћирилицом.");
+        }
+    }
+
+    /** Provjerava u pozadini sve fontove sa spiska (ne samo vidljive), da se nekompatibilni izbace što prije. */
+    private void checkAllPreviews() {
+        for (String fam : FontStore.catalog(this)) startPreview(fam);
+        updateCount();
     }
 
     /** Pokreće učitavanje pregleda za redove koji su na ekranu (i za nekoliko redova ispod njih). */
@@ -310,8 +333,10 @@ public class MainActivity extends Activity {
                     @Override
                     public void run() {
                         previewBusy.remove(fam);
-                        if (ff == null) previewFailed.add(fam);
-                        else applyPreview(fam, ff, fok);
+                        if (ff == null) {
+                            previewFailed.add(fam);
+                            updateCount();
+                        } else applyPreview(fam, ff, fok);
                     }
                 });
             }
@@ -333,6 +358,7 @@ public class MainActivity extends Activity {
         } catch (Throwable e) {
             previewFailed.add(fam);
         }
+        updateCount();
     }
 
     /** фонт / фонта / фонтова (уз број). */
@@ -366,7 +392,7 @@ public class MainActivity extends Activity {
                         b.setText("Освјежи списак фонтова са Гугла");
                         rebuild();
                         Toast.makeText(MainActivity.this,
-                                fe == null ? "Списак освјежен на " + totalCount + " " + fontWord(totalCount)
+                                fe == null ? "Списак освјежен: " + totalCount + " " + fontWord(totalCount) + " са ћирилицом"
                                         : "Грешка: " + fe,
                                 Toast.LENGTH_LONG).show();
                     }

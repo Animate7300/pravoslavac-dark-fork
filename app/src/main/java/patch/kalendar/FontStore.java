@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
 final class FontStore {
     private FontStore() {}
 
-    private static final int MAX_BYTES = 8 * 1024 * 1024;
 
     static final class HttpError extends IOException {
         final int code;
@@ -43,9 +42,11 @@ final class FontStore {
     }
 
     /** Postavke modula; pokusava se citljiv-za-sve nacin koji LSPosed podrzava (MODE_WORLD_READABLE = 1). */
+    @SuppressWarnings("deprecation")
+    @android.annotation.SuppressLint("WorldReadableFiles")
     private static SharedPreferences prefs(Context c, String name) {
         try {
-            return c.getSharedPreferences(name, 1);
+            return c.getSharedPreferences(name, Context.MODE_WORLD_READABLE);
         } catch (SecurityException e) {
             return c.getSharedPreferences(name, Context.MODE_PRIVATE);
         }
@@ -173,7 +174,6 @@ final class FontStore {
             int n;
             while ((n = in.read(buf)) > 0) {
                 out.write(buf, 0, n);
-                if (out.size() > MAX_BYTES) throw new IOException("Font je prevelik");
             }
             in.close();
             return out.toByteArray();
