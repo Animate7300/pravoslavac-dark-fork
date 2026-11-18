@@ -42,6 +42,49 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
     /** Metoda fragmenta kalendara (mjesec, godina) koja prikazuje mjesec u kalendaru (obfuskovano ime). */
     static String CAL_JUMP = "Y";
 
+    /** Fragment kalendara (poslednji izradjen): cilj skoka na izabrani mjesec. */
+    static volatile java.lang.ref.WeakReference<Object> calFragment;
+
+    /**
+     * Ikonica kalendara otvara izbor datuma, ali aplikacija poslije izbora ne prikaze izabrani mjesec (greska u
+     * originalnoj aplikaciji). Poslije potvrde izbora u DatePickerDialog-u kalendar se rucno prebaci na izabrani
+     * mjesec i godinu. Dijalozi koji se prikazuju se upisuju u log (za dijagnostiku ako izbor nije DatePickerDialog).
+     */
+    private static void hookCalendarPicker(ClassLoader cl) {
+        hook("android.app.DatePickerDialog", cl, "onClick", "android.content.DialogInterface", int.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        try {
+                            if (((Integer) param.args[1]).intValue() != android.content.DialogInterface.BUTTON_POSITIVE) return;
+                            android.app.DatePickerDialog d = (android.app.DatePickerDialog) param.thisObject;
+                            android.widget.DatePicker dp = d.getDatePicker();
+                            jumpToMonth(dp.getMonth() + 1, dp.getYear());
+                        } catch (Throwable t) {
+                            XposedBridge.log(t);
+                        }
+                    }
+                });
+        hook("android.app.Dialog", cl, "show", new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                XposedBridge.log("PravoslavacDark: dialog show " + param.thisObject.getClass().getName());
+            }
+        });
+    }
+
+    /** Prikazuje dati mjesec u fragmentu kalendara (isto kao pri pokretanju aplikacije). */
+    static void jumpToMonth(int month, int year) {
+        try {
+            java.lang.ref.WeakReference<Object> r = calFragment;
+            Object f = r == null ? null : r.get();
+            if (f == null) return;
+            XposedHelpers.callMethod(f, CAL_JUMP, new Object[] { Integer.valueOf(month), Integer.valueOf(year) });
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
     /** Bira podrzanu aplikaciju po imenu paketa; vraca false ako paket nije podrzan. */
     static boolean select(String pkg) {
         if (PKG_PRAVOSLAVAC.equals(pkg)) {
@@ -119,6 +162,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
+                        calFragment = new java.lang.ref.WeakReference<Object>(param.thisObject);
                         if (start) {
                             start = false;
                             Calendar c = Calendar.getInstance();
@@ -128,6 +172,8 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
                         }
                     }
                 });
+
+        hookCalendarPicker(cl);
 
         hook("android.os.Handler", cl, "postDelayed", "java.lang.Runnable", long.class, new XC_MethodHook() {
             @Override
