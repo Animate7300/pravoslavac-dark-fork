@@ -447,7 +447,7 @@ final class SettingsUi {
             root.addView(makeSwitch("Текст поравнат лево", "Уместо обостраног поравнања.",
                     Prefs.KEY_LEFT, true));
             root.addView(makeSwitch("Теме и фонтови",
-                    "Тема у одабраним бојама.",
+                    "Изаберите жељени фонт и тему у одабраним бојама.",
                     Prefs.KEY_DARK, true));
         } else if (tab == 1) {
             addThemeSection(root);
