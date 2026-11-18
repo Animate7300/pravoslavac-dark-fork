@@ -1025,6 +1025,186 @@ final class Dark {
         }
     }
 
+    // ------------------------------------------------------------------ traka mjeseca: format teksta, centriranje, razmak ikonice
+
+    private static final int TAG_MONTHHOOK = 0x7e0c0a32;
+    private static final java.util.regex.Pattern MONTH_RE = java.util.regex.Pattern.compile(
+            "^\\s*(\\p{L}+)\\s*[.,]?\\s*(\\d{4})\\s*\\.?\\s*$");
+
+    /** "Новембар.2026" -> "Новембар 2026." */
+    static CharSequence fixMonthText(CharSequence cs) {
+        try {
+            if (cs == null) return cs;
+            java.util.regex.Matcher m = MONTH_RE.matcher(cs.toString());
+            if (!m.matches()) return cs;
+            String want = m.group(1) + " " + m.group(2) + ".";
+            if (want.contentEquals(cs)) return cs;
+            if (!(cs instanceof Spanned)) return want;
+            SpannableStringBuilder sb = new SpannableStringBuilder(cs);
+            int n = sb.length();
+            int e = m.end(2);
+            sb.replace(e, n, ".");
+            sb.replace(m.end(1), m.start(2), " ");
+            return sb;
+        } catch (Throwable t) {
+            return cs;
+        }
+    }
+
+    /** Menja samo prikazani tekst (Новембар.2026 -> Новембар 2026.); tekst u TextView-u ostaje neizmenjen. */
+    private static final class MonthFormat implements android.text.method.TransformationMethod {
+        private final android.text.method.TransformationMethod inner;
+
+        MonthFormat(android.text.method.TransformationMethod inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public CharSequence getTransformation(CharSequence source, View view) {
+            CharSequence r = inner != null ? inner.getTransformation(source, view) : source;
+            return fixMonthText(r);
+        }
+
+        @Override
+        public void onFocusChanged(View view, CharSequence sourceText, boolean focused, int direction, Rect previouslyFocusedRect) {
+            if (inner != null) inner.onFocusChanged(view, sourceText, focused, direction, previouslyFocusedRect);
+        }
+    }
+
+    private static View monthRow(View v) {
+        View p = v;
+        for (int i = 0; i < 6 && p != null; i++) {
+            if (isMonthBarId(p)) return p;
+            Object par = p.getParent();
+            p = par instanceof View ? (View) par : null;
+        }
+        return null;
+    }
+
+    private static void hookMonthBar(final TextView tv) {
+        try {
+            final View row = monthRow(tv);
+            if (row == null) return;
+            View.OnLayoutChangeListener l = new View.OnLayoutChangeListener() {
+                @Override
+                public void onLayoutChange(View v, int a, int b, int c, int d, int e, int f, int g, int h) {
+                    alignMonthBar(row);
+                }
+            };
+            if (row.getTag(TAG_MONTHHOOK) == null) {
+                row.setTag(TAG_MONTHHOOK, Boolean.TRUE);
+                row.addOnLayoutChangeListener(l);
+            }
+            if (tv.getTag(TAG_MONTHHOOK) == null) {
+                tv.setTag(TAG_MONTHHOOK, Boolean.TRUE);
+                tv.addOnLayoutChangeListener(l);
+                if (!(tv.getTransformationMethod() instanceof MonthFormat)) {
+                    tv.setTransformationMethod(new MonthFormat(tv.getTransformationMethod()));
+                }
+            }
+            alignMonthBar(row);
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    private static int leftInRow(View v, View row) {
+        int x = 0;
+        View c = v;
+        while (c != null && c != row) {
+            x += c.getLeft();
+            Object p = c.getParent();
+            if (!(p instanceof View)) return Integer.MIN_VALUE;
+            View pv = (View) p;
+            if (pv != row) x -= pv.getScrollX();
+            c = pv;
+        }
+        return c == row ? x : Integer.MIN_VALUE;
+    }
+
+    /** Mjesec i godina tacno na sredini trake; ikonica kalendara odmaknuta od strelice. */
+    static void alignMonthBar(View row) {
+        try {
+            if (!Prefs.dark() || row.getWidth() <= 0) return;
+            java.util.List<TextView> tvs = new java.util.ArrayList<TextView>();
+            java.util.List<ImageView> ivs = new java.util.ArrayList<ImageView>();
+            collectRowViews(row, tvs, ivs);
+            if (tvs.isEmpty()) return;
+            TextView main = tvs.get(0);
+            for (TextView t : tvs) {
+                if (t.getTextSize() > main.getTextSize()) main = t;
+            }
+            ImageView icon = null;
+            java.util.List<ImageView> arrows = new java.util.ArrayList<ImageView>();
+            for (ImageView iv : ivs) {
+                if (iv.getWidth() <= 0 || iv.getDrawable() == null) continue;
+                styleMonthImage(iv);
+                if ("icon".equals(iv.getTag(TAG_IMGKIND))) icon = iv; else arrows.add(iv);
+            }
+            float density = row.getResources().getDisplayMetrics().density;
+
+            // razmak ikonice od najblize strelice
+            if (icon != null) {
+                int il = leftInRow(icon, row);
+                if (il != Integer.MIN_VALUE) {
+                    float ic = il + icon.getWidth() / 2f;
+                    ImageView near = null;
+                    float best = Float.MAX_VALUE;
+                    for (ImageView a : arrows) {
+                        int al = leftInRow(a, row);
+                        if (al == Integer.MIN_VALUE) continue;
+                        float dist = Math.abs(al + a.getWidth() / 2f - ic);
+                        if (dist < best) {
+                            best = dist;
+                            near = a;
+                        }
+                    }
+                    float tx = 0f;
+                    if (near != null) {
+                        int al = leftInRow(near, row);
+                        float gap;
+                        float dir;
+                        if (al >= il) {                      // strelica desno od ikonice
+                            gap = al - (il + icon.getWidth());
+                            dir = -1f;
+                        } else {                             // strelica lijevo od ikonice
+                            gap = il - (al + near.getWidth());
+                            dir = 1f;
+                        }
+                        float want = 14f * density;
+                        if (gap < want) tx = dir * (want - gap);
+                    }
+                    if (Math.abs(icon.getTranslationX() - tx) > 0.5f) icon.setTranslationX(tx);
+                }
+            }
+
+            // tekst na sredinu trake
+            if (main.getLayout() == null || main.getLineCount() < 1 || main.getWidth() <= 0) return;
+            int ml = leftInRow(main, row);
+            if (ml == Integer.MIN_VALUE) return;
+            android.text.Layout lay = main.getLayout();
+            float left = ml + main.getCompoundPaddingLeft() + lay.getLineLeft(0);
+            float center = left + lay.getLineWidth(0) / 2f;
+            float dx = row.getWidth() / 2f - center;
+            // ne smije se nalijegati na ikonicu
+            if (icon != null) {
+                int il = leftInRow(icon, row);
+                if (il != Integer.MIN_VALUE) {
+                    float iconL = il + icon.getTranslationX();
+                    float iconR = iconL + icon.getWidth();
+                    float tl = left + dx;
+                    float tr = tl + lay.getLineWidth(0);
+                    float pad = 4f * density;
+                    if (iconL > center && tr > iconL - pad) dx -= tr - (iconL - pad);
+                    else if (iconR < center && tl < iconR + pad) dx += (iconR + pad) - tl;
+                }
+            }
+            if (Math.abs(main.getTranslationX() - dx) > 0.5f) main.setTranslationX(dx);
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
     // ------------------------------------------------------------------ strelice i ikonica u traci mjeseca
 
     private static final int TAG_IMGKIND = 0x7e0c0a0a;
@@ -1394,6 +1574,9 @@ final class Dark {
         }
         if (role != 0) {
             Fonts.apply(tv, rk);
+            if ("c_month_text".equals(rk)) {
+                hookMonthBar(tv);   // format se menja samo u prikazu; getText() ostaje originalan (aplikacija ga parsira)
+            }
             return spansToColor(cs, role);
         }
         if (applyTextRole(tv, cs) == null) {
