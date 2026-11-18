@@ -446,7 +446,7 @@ final class SettingsUi {
                     Prefs.KEY_OPEN_CALENDAR, true));
             root.addView(makeSwitch("Текст поравнат лево", "Уместо обостраног поравнања.",
                     Prefs.KEY_LEFT, true));
-            root.addView(makeSwitch("Теме",
+            root.addView(makeSwitch("Теме и фонтови",
                     "Тема у одабраним бојама.",
                     Prefs.KEY_DARK, true));
         } else if (tab == 1) {
