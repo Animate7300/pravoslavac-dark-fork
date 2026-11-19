@@ -111,8 +111,18 @@ final class SettingsUi {
         SettingsUi s = current;
         if (s == null || s.closed || s.act != act) return false;
         if (s.drawerOpen()) return false;
-        s.close(true);
+        if (!s.backInside()) s.close(true);
         return true;
+    }
+
+    /** Back dok je otvoreno preuzimanje fontova: zatvara samo taj dio (isto kao dugme "Затвори преузимање фонтова"). */
+    private boolean backInside() {
+        if (tab == 2 && fontPanelOpen) {
+            fontPanelOpen = false;
+            build();
+            return true;
+        }
+        return false;
     }
 
     private void open() {
@@ -211,7 +221,7 @@ final class SettingsUi {
         @Override
         public boolean dispatchKeyEvent(KeyEvent e) {
             if (e.getKeyCode() == KeyEvent.KEYCODE_BACK && !closed && !drawerOpen()) {
-                if (e.getAction() == KeyEvent.ACTION_UP) close(true);
+                if (e.getAction() == KeyEvent.ACTION_UP && !backInside()) close(true);
                 return true;
             }
             return super.dispatchKeyEvent(e);
@@ -302,7 +312,7 @@ final class SettingsUi {
                     @Override
                     public void onBackInvoked() {
                         if (s.drawerOpen()) Hook.closeDrawer(a);
-                        else s.close(true);
+                        else if (!s.backInside()) s.close(true);
                     }
                 };
             }
