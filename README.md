@@ -42,8 +42,6 @@ preko njegovog `FontProvider`-a spisak, pregled i preuzimanje (dozvoljeni su sam
    вино...) prepoznaju se po sadržaju teksta. Crkvenoslovenski fontovi (`triodion-ieUcs` i `IrmolSkun_0`) se automatski izuzimaju.
    (prvi red „Цео календар“). Izmene se vide kad zatvorite podešavanja.
 
-Prekidači „Теме“ i „Фонтови“ (tab Опште) su odvojeni: fontovi rade i kad je tema isključena (tada se primjenjuju na tekst u stranicama i na prepoznate tekstove kalendara, bez promjene boja).
-
 Da bi panel radio, u LSPosed-u uključite modul i za „System Framework“ (android), pa restartujte telefon (modul tako postaje vidljiv Pravoslavcu, Android 11+). Ako panel ipak javi da modul nije dostupan, provjerite to. Aplikacija modula nema svoj ekran za fontove
 (samo kratko obavještenje); preuzimanje je isključivo u Pravoslavcu, ali modul treba ostati instaliran.
 

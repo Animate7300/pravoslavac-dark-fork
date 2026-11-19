@@ -95,6 +95,7 @@ final class Assets {
         return "(function(){" + navCore() + NAV_OBSERVER + "})();";
     }
 
+
     static String darkJs() {
         String css = darkCss().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n");
         String markFont = Fonts.cssFamily("c_web_mark");   // font oznaka verzija (zelene oznake) ili null

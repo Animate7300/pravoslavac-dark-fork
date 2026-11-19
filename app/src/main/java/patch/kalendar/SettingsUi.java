@@ -436,6 +436,7 @@ final class SettingsUi {
 
     /** (Ponovo) gradi cijeli ekran; cuva poziciju skrolovanja. */
     private void build() {
+        if (!themed() && tab != 0) tab = 0;   // tema/fontovi iskljuceni: tabovi Теме i Фонтови se ne prikazuju
         final int scrollY = (scroll != null && builtTab == tab) ? scroll.getScrollY() : 0;
         builtTab = tab;
 
@@ -452,12 +453,9 @@ final class SettingsUi {
                     Prefs.KEY_OPEN_CALENDAR, true));
             root.addView(makeSwitch("Текст поравнат лево", "Уместо обостраног поравнања.",
                     Prefs.KEY_LEFT, true));
-            root.addView(makeSwitch("Теме",
-                    "Боје изабране теме (искључено: оригиналне боје апликације).",
+            root.addView(makeSwitch("Теме и фонтови",
+                    "Изаберите жељени фонт и тему у одабраним бојама.",
                     Prefs.KEY_DARK, true));
-            root.addView(makeSwitch("Фонтови",
-                    "Изабрани фонтови и величине текста (раде и кад је тема искључена).",
-                    Prefs.KEY_FONTS_ON, Prefs.fontsOn()));
         } else if (tab == 1) {
             addThemeSection(root);
         } else {
@@ -500,7 +498,8 @@ final class SettingsUi {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setBackgroundColor(bar());
         String[] names = { "Опције", "Теме", "Фонтови" };
-        for (int i = 0; i < names.length; i++) {
+        int shown = themed() ? names.length : 1;   // prekidac "Теме и фонтови" iskljucen: samo Опције
+        for (int i = 0; i < shown; i++) {
             final int idx = i;
             FrameLayout cell = new FrameLayout(act);
             TextView tv = new TextView(act);
@@ -572,7 +571,7 @@ final class SettingsUi {
                             if (!closed) build();
                         }
                     });
-                } else if (Prefs.KEY_LEFT.equals(key) || Prefs.KEY_FONTS_ON.equals(key)) {
+                } else if (Prefs.KEY_LEFT.equals(key)) {
                     dirty = true;
                 }
             }
@@ -689,6 +688,28 @@ final class SettingsUi {
         dirty = true;
     }
 
+    /** Poslije brisanja preuzetih fontova: tekstovi koji su koristili obrisani font vracaju se na originalni. */
+    private void pruneMissingFonts() {
+        try {
+            Fonts.reset();
+            org.json.JSONObject f = fonts().optJSONObject("f");
+            if (f == null) return;
+            java.util.List<String> have = Fonts.available();
+            java.util.List<String> drop = new java.util.ArrayList<String>();
+            java.util.Iterator<String> it = f.keys();
+            while (it.hasNext()) {
+                String k = it.next();
+                String fam = f.optString(k, "");
+                if (fam.length() > 0 && !have.contains(fam)) drop.add(k);
+            }
+            if (drop.isEmpty()) return;
+            for (String k : drop) f.remove(k);
+            saveFonts();   // snimi izbor i oznaci da se ekran aplikacije ponovo napravi pri zatvaranju podesavanja
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
     private void addFontSection(LinearLayout root) {
         final FontPanel.Pal pal = fontPal();
         TextView toggle = fontPanelOpen
@@ -716,6 +737,11 @@ final class SettingsUi {
                     @Override
                     public void run() {
                         if (!closed) build();   // osvjezi nazive fontova u tabu
+                    }
+                }, new Runnable() {
+                    @Override
+                    public void run() {
+                        pruneMissingFonts();
                     }
                 });
             }

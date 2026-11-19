@@ -71,6 +71,7 @@ final class FontPanel {
     private final Pal pal;
     private final FontClient client;
     private final Runnable onChanged;
+    private final Runnable onDeleted;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private LinearLayout root;
@@ -102,11 +103,12 @@ final class FontPanel {
         TextView btn;
     }
 
-    FontPanel(Activity act, Pal pal, Runnable onChanged) {
+    FontPanel(Activity act, Pal pal, Runnable onChanged, Runnable onDeleted) {
         this.act = act;
         this.pal = pal;
         this.client = new FontClient(act);
         this.onChanged = onChanged;
+        this.onDeleted = onDeleted;
         buildView();
     }
 
@@ -740,6 +742,7 @@ final class FontPanel {
                         busy.remove(fam);
                         if (fe == null) {
                             installed.remove(fam);
+                            if (onDeleted != null) onDeleted.run();   // tekstovi sa ovim fontom se vracaju na original
                             markChanged();
                             updateCount();
                             if (!inCatalog(fam)) {
@@ -790,6 +793,7 @@ final class FontPanel {
                                             return;
                                         }
                                         installed.clear();
+                                        if (onDeleted != null) onDeleted.run();   // svi tekstovi se vracaju na original
                                         markChanged();
                                         build();
                                     }
