@@ -6,10 +6,12 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -53,7 +55,11 @@ public final class FontProvider extends ContentProvider {
             if ("state".equals(method)) {
                 FontStore.purgeIncomplete(c);
                 out.putStringArray("catalog", FontStore.catalog(c));
-                out.putStringArray("installed", FontStore.installed(c).toArray(new String[0]));
+                java.util.List<String> inst = FontStore.installed(c);
+                out.putStringArray("installed", inst.toArray(new String[0]));
+                long[] vers = new long[inst.size()];
+                for (int i = 0; i < vers.length; i++) vers[i] = FontStore.version(c, inst.get(i));
+                out.putLongArray("vers", vers);
                 out.putStringArray("bad", FontStore.badPreviews(c).toArray(new String[0]));
             } else if ("refresh".equals(method)) {
                 out.putInt("count", FontStore.refreshCatalog(c));
@@ -65,6 +71,7 @@ public final class FontProvider extends ContentProvider {
                 out.putBoolean("complete", ok);
             } else if ("download".equals(method)) {
                 FontStore.download(c, arg);
+                out.putLong("ver", FontStore.version(c, arg));
             } else if ("delete".equals(method)) {
                 FontStore.delete(c, arg);
             } else if ("deleteAll".equals(method)) {
@@ -93,6 +100,20 @@ public final class FontProvider extends ContentProvider {
         } finally {
             in.close();
         }
+    }
+
+    /** content://AUTHORITY/font/<slug>/reg|bold: fajl preuzetog fonta (Pravoslavac ga kopira u svoj prostor). */
+    @Override
+    public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+        if (!allowed()) throw new SecurityException("Није дозвољено");
+        java.util.List<String> seg = uri.getPathSegments();
+        if (seg.size() != 3 || !"font".equals(seg.get(0)) || !seg.get(1).matches("[a-z0-9_]+")) {
+            throw new FileNotFoundException();
+        }
+        Context c = getContext();
+        File f = c == null ? null : FontStore.fontFile(c, seg.get(1), "bold".equals(seg.get(2)));
+        if (f == null) throw new FileNotFoundException();
+        return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
     }
 
     @Override

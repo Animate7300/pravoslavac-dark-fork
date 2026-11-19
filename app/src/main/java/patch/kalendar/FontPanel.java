@@ -371,6 +371,11 @@ final class FontPanel {
                 String err = null;
                 try {
                     st = client.state();
+                    try {
+                        client.sync(st);   // fontovi se cuvaju u Pravoslavcu: prenesi nove / ukloni obrisane
+                    } catch (Throwable ignored) {
+                        // nije kriticno: ponovo se pokusava pri sljedecem otvaranju
+                    }
                 } catch (Throwable e) {
                     err = msg(e);
                 }
@@ -819,6 +824,11 @@ final class FontPanel {
                 try {
                     n = client.refresh();
                     st = client.state();
+                    try {
+                        client.sync(st);   // fontovi se cuvaju u Pravoslavcu: prenesi nove / ukloni obrisane
+                    } catch (Throwable ignored) {
+                        // nije kriticno: ponovo se pokusava pri sljedecem otvaranju
+                    }
                 } catch (Throwable e) {
                     err = msg(e);
                 }

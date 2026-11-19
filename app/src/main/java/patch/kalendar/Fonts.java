@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 
 /**
@@ -73,27 +72,155 @@ final class Fonts {
     }
 
     private static final Map<String, Face> FACES = new HashMap<String, Face>();
-    private static XSharedPreferences idx;
-    private static long idxCheck;
+    // Preuzeti fontovi se cuvaju u prostoru Pravoslavca (files/fonts): slug-r.ttf, slug-b.ttf i spisak index.txt
+    // (red: naziv fonta, tabulator, verzija). Kopira ih tu FontClient iz modula (FontProvider), ne cita se nista iz modula.
+    private static final Map<String, Long> LOCAL = new java.util.LinkedHashMap<String, Long>();
+    private static long localStamp = -1L;
+    private static long localCheck;
+    private static boolean migrating;
 
-    // ------------------------------------------------------------------ spisak i kesiranje
-
-    private static synchronized XSharedPreferences index() {
-        if (idx == null) idx = new XSharedPreferences(FontCatalog.MODULE_APP_ID, FontCatalog.PREFS_INDEX);
-        long now = System.currentTimeMillis();
-        if (now - idxCheck > 1500L) {
-            idxCheck = now;
-            if (idx.hasFileChanged()) idx.reload();
-        }
-        return idx;
+    private static File indexFile() {
+        return new File(dir(), "index.txt");
     }
 
-    /** Fontovi koje je modul preuzeo (za izbor u uredjivacu tema). */
+    private static long stamp(File f) {
+        return f.isFile() ? f.lastModified() * 31L + f.length() : 0L;
+    }
+
+    private static synchronized Map<String, Long> localIndex() {
+        long now = System.currentTimeMillis();
+        if (localStamp < 0L || now - localCheck > 1500L) {
+            localCheck = now;
+            File f = indexFile();
+            long st = stamp(f);
+            if (st != localStamp) {
+                localStamp = st;
+                LOCAL.clear();
+                if (f.isFile()) {
+                    try {
+                        java.io.BufferedReader r = new java.io.BufferedReader(
+                                new java.io.InputStreamReader(new java.io.FileInputStream(f), "UTF-8"));
+                        try {
+                            String line;
+                            while ((line = r.readLine()) != null) {
+                                int t = line.lastIndexOf('\t');
+                                if (t <= 0) continue;
+                                try {
+                                    LOCAL.put(line.substring(0, t), Long.valueOf(Long.parseLong(line.substring(t + 1).trim())));
+                                } catch (NumberFormatException ignored) {
+                                    // preskoci neispravan red
+                                }
+                            }
+                        } finally {
+                            r.close();
+                        }
+                    } catch (Throwable t) {
+                        XposedBridge.log(t);
+                    }
+                }
+            }
+        }
+        return LOCAL;
+    }
+
+    private static synchronized void saveLocal() {
+        try {
+            File d = dir();
+            d.mkdirs();
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Long> e : LOCAL.entrySet()) {
+                sb.append(e.getKey()).append('\t').append(e.getValue().longValue()).append('\n');
+            }
+            write(indexFile(), sb.toString().getBytes("UTF-8"));
+            localStamp = stamp(indexFile());
+            localCheck = System.currentTimeMillis();
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    /** Verzija fonta u Pravoslavcu (0 = nije preuzet). */
+    static synchronized long localVer(String family) {
+        Long v = localIndex().get(family);
+        return v == null ? 0L : v.longValue();
+    }
+
+    static synchronized List<String> localFamilies() {
+        return new ArrayList<String>(localIndex().keySet());
+    }
+
+    static synchronized void putLocal(String family, long ver) {
+        localIndex();
+        LOCAL.put(family, Long.valueOf(ver));
+        saveLocal();
+        FACES.remove(family);
+    }
+
+    /** Brise font iz Pravoslavca (fajlovi i red u spisku). */
+    static synchronized void removeLocal(String family) {
+        localIndex();
+        String slug = FontCatalog.slug(family);
+        File d = dir();
+        new File(d, slug + "-r.ttf").delete();
+        new File(d, slug + "-b.ttf").delete();
+        new File(d, slug + ".ver").delete();
+        LOCAL.remove(family);
+        saveLocal();
+        FACES.remove(family);
+    }
+
+    static synchronized void clearLocal() {
+        for (String f : localFamilies()) removeLocal(f);
+    }
+
+    /** Pravi (prazan) spisak ako ga nema, da se prenos iz modula ne ponavlja bez potrebe. */
+    static synchronized void touchLocalIndex() {
+        localIndex();
+        if (!indexFile().isFile()) saveLocal();
+    }
+
+    /** Verzija iz stare sheme (.ver pored fajla fonta); 0 ako je nema. */
+    static long readVerFile(String slug) {
+        return readLong(new File(dir(), slug + ".ver"));
+    }
+
+    static void writeVerFile(String slug, long ver) {
+        try {
+            write(new File(dir(), slug + ".ver"), Long.toString(ver).getBytes("UTF-8"));
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    /**
+     * Prva upotreba poslije prelaska sa citanja postavki modula: fontovi koje je modul vec preuzeo prenose se u pozadini
+     * u Pravoslavac (jednom po procesu; ako nema spiska, a modul nije dostupan, ostaje originalni font).
+     */
+    private static void migrate() {
+        if (migrating || indexFile().exists()) return;
+        migrating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Object app = Class.forName("android.app.ActivityThread").getMethod("currentApplication").invoke(null);
+                    if (app instanceof android.content.Context) {
+                        new FontClient((android.content.Context) app).sync();
+                    }
+                } catch (Throwable t) {
+                    XposedBridge.log(t);
+                } finally {
+                    reset();
+                }
+            }
+        }, "pdk-fonts-sync").start();
+    }
+
+    /** Fontovi preuzeti u Pravoslavac (za izbor u uredjivacu tema). */
     static synchronized List<String> available() {
         List<String> out = new ArrayList<String>();
         try {
-            String s = index().getString("list", "");
-            for (String f : s.split("\\|")) {
+            for (String f : localIndex().keySet()) {
                 if (f.length() > 0 && hasSerbianLetters(f)) out.add(f);   // samo fontovi koji zaista imaju ђ ћ џ љ њ...
             }
         } catch (Throwable t) {
@@ -110,7 +237,7 @@ final class Fonts {
     private static synchronized boolean hasSerbianLetters(String family) {
         try {
             String slug = FontCatalog.slug(family);
-            String key = slug + ":" + index().getLong("v_" + slug, 0L);
+            String key = slug + ":" + localVer(family);
             Boolean ok = SERBIAN_OK.get(key);
             if (ok != null) return ok.booleanValue();
             File[] c = cached(family);
@@ -127,15 +254,11 @@ final class Fonts {
     /** Ponovo ucitaj spisak i fontove (poslije promjene izbora ili novog preuzimanja). */
     static synchronized void reset() {
         FACES.clear();
-        idxCheck = 0;
-        try {
-            if (idx != null) idx.reload();
-        } catch (Throwable t) {
-            XposedBridge.log(t);
-        }
+        localCheck = 0L;
+        localStamp = -1L;
     }
 
-    private static File dir() {
+    static File dir() {
         return new File(Prefs.dir(), "files/fonts");
     }
 
@@ -161,49 +284,16 @@ final class Fonts {
         }
     }
 
-    /** {regularni, podebljani ili null} fajl fonta, uvezen iz postavki modula ako treba; null ako fonta nema. */
+    /** {regularni, podebljani ili null} fajl fonta u Pravoslavcu; null ako fonta nema. */
     private static File[] cached(String family) {
+        if (localVer(family) == 0L) {
+            migrate();   // mozda je font vec preuzet u modulu (prije ove verzije): prenesi ga u pozadini
+            return null;
+        }
         String slug = FontCatalog.slug(family);
         File d = dir();
         File reg = new File(d, slug + "-r.ttf");
         File bold = new File(d, slug + "-b.ttf");
-        File ver = new File(d, slug + ".ver");
-        long want = 0L;
-        try {
-            want = index().getLong("v_" + slug, 0L);
-        } catch (Throwable t) {
-            // spisak nedostupan: koristi se ono sto je vec uvezeno
-        }
-        if (want == 0L) {
-            // spisak modula postoji, a fonta u njemu nema: preuzeti font je obrisan, pa se brise i kopija
-            try {
-                File idxFile = index().getFile();
-                if (idxFile != null && idxFile.exists()) {
-                    reg.delete();
-                    bold.delete();
-                    ver.delete();
-                    return null;
-                }
-            } catch (Throwable t) {
-                // spisak nedostupan: ostaje kesirano
-            }
-        }
-        if (want != 0L && !(reg.isFile() && readLong(ver) == want)) {
-            try {
-                XSharedPreferences p = new XSharedPreferences(FontCatalog.MODULE_APP_ID, FontCatalog.PREFS_FONT + slug);
-                String r = p.getString("reg", null);
-                if (r != null) {
-                    d.mkdirs();
-                    write(reg, Base64.decode(r, Base64.DEFAULT));
-                    String b = p.getString("bold", null);
-                    if (b != null) write(bold, Base64.decode(b, Base64.DEFAULT));
-                    else bold.delete();
-                    write(ver, Long.toString(p.getLong("ver", want)).getBytes("UTF-8"));
-                }
-            } catch (Throwable t) {
-                XposedBridge.log(t);
-            }
-        }
         if (!reg.isFile()) return null;
         return new File[] { reg, bold.isFile() ? bold : null };
     }

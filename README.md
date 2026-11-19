@@ -28,6 +28,8 @@ i prikazu teksta.
 
 Poseban tab **Фонтови** u Podešavanjima (pored „Опције“ i „Теме“). Fontovi ne zavise od teme boja.
 
+Preuzeti fontovi se kopiraju u privatni prostor Pravoslavca (modul ih šalje preko `FontProvider`-a; ne koristi se zastarjeli „New XSharedPreferences“ LSPosed-a, pa nema upozorenja o zastarjeloj funkciji). Fontovi preuzeti ranijim verzijama prenose se automatski pri prvom korištenju.
+
 Pravoslavac nema dozvolu za internet, pa mrežu za njega radi sam modul (ima `INTERNET`, koristi se samo pri pritisku
 na „Preuzmi“). Sve se radi **u tabu „Фонтови“ unutar Pravoslavca**, bez prebacivanja u drugu aplikaciju: panel traži od modula
 preko njegovog `FontProvider`-a spisak, pregled i preuzimanje (dozvoljeni su samo Pravoslavac i Житије светих).

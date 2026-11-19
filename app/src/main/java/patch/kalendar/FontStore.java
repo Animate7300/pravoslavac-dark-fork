@@ -41,15 +41,20 @@ final class FontStore {
         }
     }
 
-    /** Postavke modula; pokusava se citljiv-za-sve nacin koji LSPosed podrzava (MODE_WORLD_READABLE = 1). */
-    @SuppressWarnings("deprecation")
-    @android.annotation.SuppressLint("WorldReadableFiles")
+    /** Postavke modula (privatne: Pravoslavac fontove dobija preko FontProvider-a, ne citanjem postavki modula). */
     private static SharedPreferences prefs(Context c, String name) {
-        try {
-            return c.getSharedPreferences(name, Context.MODE_WORLD_READABLE);
-        } catch (SecurityException e) {
-            return c.getSharedPreferences(name, Context.MODE_PRIVATE);
-        }
+        return c.getSharedPreferences(name, Context.MODE_PRIVATE);
+    }
+
+    /** Verzija preuzetog fonta (0 = nije preuzet). */
+    static long version(Context c, String family) {
+        return prefs(c, FontCatalog.PREFS_INDEX).getLong("v_" + FontCatalog.slug(family), 0L);
+    }
+
+    /** Fajl preuzetog fonta (regularni ili podebljani) po "slug"-u, ili null. */
+    static File fontFile(Context c, String slug, boolean bold) {
+        File f = new File(localDir(c), slug + (bold ? "-b.ttf" : "-r.ttf"));
+        return f.isFile() ? f : null;
     }
 
     private static final String CATALOG_PREFS = "fonts_catalog";

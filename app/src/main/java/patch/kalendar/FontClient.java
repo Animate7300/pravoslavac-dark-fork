@@ -21,6 +21,7 @@ final class FontClient {
         String[] catalog = new String[0];
         final Set<String> installed = new HashSet<String>();
         final Set<String> bad = new HashSet<String>();
+        final java.util.Map<String, Long> vers = new java.util.HashMap<String, Long>();
     }
 
     static final class Preview {
@@ -63,7 +64,13 @@ final class FontClient {
         String[] cat = b.getStringArray("catalog");
         if (cat != null) s.catalog = cat;
         String[] in = b.getStringArray("installed");
-        if (in != null) s.installed.addAll(Arrays.asList(in));
+        long[] vs = b.getLongArray("vers");
+        if (in != null) {
+            s.installed.addAll(Arrays.asList(in));
+            for (int i = 0; i < in.length; i++) {
+                s.vers.put(in[i], Long.valueOf(vs != null && i < vs.length ? vs[i] : 0L));
+            }
+        }
         String[] bad = b.getStringArray("bad");
         if (bad != null) s.bad.addAll(Arrays.asList(bad));
         return s;
@@ -73,16 +80,95 @@ final class FontClient {
         return call("refresh", null).getInt("count", 0);
     }
 
+    /** Preuzima font (modul) i kopira ga u Pravoslavac. */
     void download(String family) throws IOException {
-        call("download", family);
+        long ver = call("download", family).getLong("ver", 0L);
+        pull(family, ver == 0L ? System.currentTimeMillis() : ver);
+    }
+
+    /** Uskladjuje fontove u Pravoslavcu sa fontovima preuzetim u modulu (prenosi nove, brise obrisane). */
+    void sync() throws IOException {
+        sync(state());
+    }
+
+    void sync(State st) throws IOException {
+        IOException first = null;
+        for (String fam : st.installed) {
+            long v = st.vers.containsKey(fam) ? st.vers.get(fam).longValue() : 0L;
+            if (v == 0L || Fonts.localVer(fam) == v) continue;
+            String slug = FontCatalog.slug(fam);
+            if (new File(Fonts.dir(), slug + "-r.ttf").isFile() && Fonts.readVerFile(slug) == v) {
+                Fonts.putLocal(fam, v);   // vec preneseno ranijom verzijom
+                continue;
+            }
+            try {
+                pull(fam, v);
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
+        }
+        for (String fam : Fonts.localFamilies()) {
+            if (!st.installed.contains(fam)) Fonts.removeLocal(fam);
+        }
+        Fonts.touchLocalIndex();
+        Fonts.reset();
+        if (first != null) throw first;
+    }
+
+    private void copy(Uri uri, File dest) throws IOException {
+        File tmp = new File(dest.getPath() + ".tmp");
+        java.io.InputStream in;
+        try {
+            in = ctx.getContentResolver().openInputStream(uri);
+        } catch (java.io.FileNotFoundException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new IOException("модул није доступан");
+        }
+        if (in == null) throw new IOException("нема фајла фонта");
+        try {
+            FileOutputStream o = new FileOutputStream(tmp);
+            try {
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    o.write(buf, 0, n);
+                }
+            } finally {
+                o.close();
+            }
+        } finally {
+            in.close();
+        }
+        dest.delete();
+        if (!tmp.renameTo(dest)) throw new IOException("не могу да снимим фонт");
+    }
+
+    private void pull(String family, long ver) throws IOException {
+        String slug = FontCatalog.slug(family);
+        File d = Fonts.dir();
+        d.mkdirs();
+        File reg = new File(d, slug + "-r.ttf");
+        File bold = new File(d, slug + "-b.ttf");
+        String base = "content://" + FontCatalog.PROVIDER_AUTHORITY + "/font/" + slug + "/";
+        copy(Uri.parse(base + "reg"), reg);
+        try {
+            copy(Uri.parse(base + "bold"), bold);
+        } catch (java.io.FileNotFoundException e) {
+            bold.delete();   // font nema podebljani stil
+        }
+        Fonts.writeVerFile(slug, ver);
+        Fonts.putLocal(family, ver);
     }
 
     void delete(String family) throws IOException {
         call("delete", family);
+        Fonts.removeLocal(family);
     }
 
     void deleteAll() throws IOException {
         call("deleteAll", null);
+        Fonts.clearLocal();
     }
 
     void markBad(String family) {
