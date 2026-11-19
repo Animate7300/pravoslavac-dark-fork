@@ -61,6 +61,8 @@ final class Dark {
     static int SCROLL = 0xff8b0000;
     static int WEB_BG = 0xff121212;
     static int WEB_TEXT = 0xffd9d4c7;
+    /** Tekst stranica u WebView-u (zitija, knjige, molitve); WEB_TEXT je samo za spisak knjiga i molitvi. */
+    static int WEB_BODY = 0xffd9d4c7;
     static int WEB_HEAD2 = 0xffe6e1d6;
     static int WEB_LINK = 0xff8ab4f8;
     static int WEB_VISITED = 0xffc4a5f0;
@@ -110,6 +112,7 @@ final class Dark {
         SCROLL = Prefs.color("c_scroll");
         WEB_BG = Prefs.color("c_web_bg");
         WEB_TEXT = Prefs.color("c_web_text");
+        WEB_BODY = Prefs.color("c_web_body");
         WEB_HEAD2 = Prefs.color("c_web_head2");
         WEB_LINK = Prefs.color("c_web_link");
         WEB_VISITED = Prefs.color("c_web_visited");
@@ -255,10 +258,25 @@ final class Dark {
         return (a << 24) | (clamp(ri) << 16) | (clamp(gi) << 8) | clamp(bi);
     }
 
+    /**
+     * Da li je boja (tacno) jedna od pozadinskih boja same teme. Takve boje je korisnik sam zadao (ukucao ili izabrao),
+     * pa se ne smiju ponovo pretvarati kao originalne svijetle boje aplikacije (inace npr. svijetla pozadina menija
+     * postane pozadina kalendara).
+     */
+    static boolean isThemeBg(int c) {
+        if ((c >>> 24) != 0xff) return false;
+        int rgb = c & 0xffffff;
+        return rgb == (BG & 0xffffff) || rgb == (SURFACE & 0xffffff) || rgb == (ROW & 0xffffff)
+                || rgb == (WEB_BG & 0xffffff) || rgb == (TOOLBAR & 0xffffff) || rgb == (SUN_BG & 0xffffff)
+                || rgb == (MONTH_BAR & 0xffffff) || rgb == (CAL_TITLE_BG & 0xffffff) || rgb == (BAR & 0xffffff)
+                || rgb == (BAR_DARK & 0xffffff) || rgb == (BTN_BG & 0xffffff) || rgb == (ARROW_PRESSED & 0xffffff);
+    }
+
     /** Svijetla pozadina -> tamna (zadrzava nijansu). */
     static int mapBg(int c) {
         int a = c >>> 24;
         if (a < 20) return c;
+        if (isThemeBg(c)) return c;   // boja teme (zadata u editoru): ne diraj, ma koliko bila svijetla
         float[] hsl = toHsl(c);
         if (hsl[2] < 0.6f) return c;
         if (light()) return (a << 24) | (BG & 0xffffff);   // svijetla tema: svijetla pozadina -> pozadina teme
@@ -1393,6 +1411,7 @@ final class Dark {
             markSunday(v);
             return;
         }
+        if (avg != 0 && isThemeBg(avg)) return;          // drawable u boji teme
         float dl = avg == 0 ? -1f : lum(avg);
         if (dl < 0.6f) return;
         if (d instanceof BitmapDrawable && ((BitmapDrawable) d).getIntrinsicWidth() > 400) {

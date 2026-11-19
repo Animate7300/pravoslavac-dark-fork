@@ -513,7 +513,7 @@ final class Fonts {
         args[1] = Float.valueOf(fitSize(tv, px * Prefs.fontSize((String) k) / 100f, tv.getTypeface()));
     }
 
-    /** Velicina teksta stranica u WebView-u ("Листе књига и молитви"): zoom teksta WebView-a (pozivati na pocetku ucitavanja). */
+    /** Velicina teksta stranica u WebView-u ("Текст житија, књига и молитви"): zoom teksta WebView-a (pozivati na pocetku ucitavanja). */
     static void applyWebZoom(android.webkit.WebView wv) {
         try {
             if (!Prefs.dark()) return;
@@ -526,7 +526,7 @@ final class Fonts {
                 base = ws.getTextZoom();
                 wv.setTag(TAG_ZOOM0, Integer.valueOf(base));
             }
-            int want = Math.round(base * Prefs.fontSize("c_web_text") / 100f);
+            int want = Math.round(base * Prefs.fontSize("c_web_body") / 100f);
             if (ws.getTextZoom() != want) ws.setTextZoom(want);
         } catch (Throwable t) {
             XposedBridge.log(t);
@@ -574,7 +574,7 @@ final class Fonts {
 
     /** {kljuc, selektor za font-family, selektor za velicinu (zoom; null = rjesava se drugacije)}. */
     private static final String[][] WEB_RULES = {
-            { "c_web_text", "html,body,body *", null },
+            { "c_web_body", "html,body,body *", null },
             { "c_web_link", "a,a *", "a" },
             { "c_title", "h1,h2,h3,h4,h5,h6,h1 *,h2 *,h3 *,h4 *,h5 *,h6 *,.title,.title *,.naslov,.naslov *,.color-red,.color-red *", "h1,h2,h3,h4,h5,h6,.title,.naslov,.color-red" },
             { "c_btn_text", "[data-dkb][data-dkb],[data-dkb][data-dkb] *", "[data-dkb][data-dkb]" },

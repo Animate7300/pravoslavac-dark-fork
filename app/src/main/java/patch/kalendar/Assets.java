@@ -11,7 +11,7 @@ final class Assets {
     /** CSS za tamnu temu; boje dolaze iz Dark.* (podrazumijevane ili prilagodjene). */
     static String darkCss() {
         return ":root{color-scheme:" + (Dark.light() ? "light" : "dark") + "}\n"
-                + "html,body{background:" + hex(Dark.WEB_BG) + " !important;background-image:none !important;color:" + hex(Dark.WEB_TEXT) + " !important}\n"
+                + "html,body{background:" + hex(Dark.WEB_BG) + " !important;background-image:none !important;color:" + hex(Dark.WEB_BODY) + " !important}\n"
                 + "#wrapper,div.transbox,.calibre,.calibre1{background:transparent !important;background-image:none !important}\n"
                 + "h1,h2,h3,h4,h5,h6,.title,.naslov,.color-red{color:" + hex(Dark.TITLE) + " !important}\n"
                 + "h5,h6{color:" + hex(Dark.WEB_HEAD2) + " !important}\n"
@@ -20,7 +20,7 @@ final class Assets {
                 + "a:hover{color:" + hex(Dark.TITLE) + " !important}\n"
                 + "hr{border-color:" + hex(Dark.WEB_LINE) + " !important;color:" + hex(Dark.WEB_LINE) + " !important;background-color:" + hex(Dark.WEB_LINE) + "}\n"
                 + "table,td,th{border-color:" + hex(Dark.WEB_LINE) + "}\n"
-                + "input,select,textarea,button{background:" + hex(Dark.SURFACE) + ";color:" + hex(Dark.WEB_TEXT) + ";border-color:" + hex(Dark.WEB_LINE) + "}\n"
+                + "input,select,textarea,button{background:" + hex(Dark.SURFACE) + ";color:" + hex(Dark.WEB_BODY) + ";border-color:" + hex(Dark.WEB_LINE) + "}\n"
                 + "[data-dkb][data-dkb][data-dkb],[data-dkb][data-dkb][data-dkb]:link,[data-dkb][data-dkb][data-dkb]:visited,[data-dkb][data-dkb][data-dkb]:hover,[data-dkb][data-dkb][data-dkb]:active,[data-dkb][data-dkb][data-dkb]:focus{background:" + hex(Dark.BTN_BG) + " !important;background-image:none !important;color:" + hex(Dark.BTN_TEXT) + " !important;border-color:" + hex(Dark.BTN_BORDER) + " !important;outline-color:" + hex(Dark.BTN_BORDER) + " !important;text-shadow:none !important}\n"
                 + "[data-dkb][data-dkb] *{color:" + hex(Dark.BTN_TEXT) + " !important}\n"
                 + "::-webkit-scrollbar-track{-webkit-box-shadow:inset 0 0 3px rgba(0,0,0," + (Dark.light() ? ".25" : ".8") + ")}\n"
@@ -100,7 +100,7 @@ final class Assets {
         String css = darkCss().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n");
         String markFont = Fonts.cssFamily("c_web_mark");   // font oznaka verzija (zelene oznake) ili null
         String titleFont = Fonts.cssFamily("c_title");     // font naslova ili null
-        return DARK_JS.replace("@NAVCORE@", navCore()).replace("@TEXT@", hex(Dark.WEB_TEXT)).replace("@TITLE@", hex(Dark.TITLE)).replace("@MARK@", hex(Dark.WEB_MARK))
+        return DARK_JS.replace("@NAVCORE@", navCore()).replace("@TEXT@", hex(Dark.WEB_BODY)).replace("@TITLE@", hex(Dark.TITLE)).replace("@MARK@", hex(Dark.WEB_MARK))
                 .replace("@BG@", hex(Dark.WEB_BG)).replace("@LIGHT@", Dark.light() ? "true" : "false")
                 .replace("@MKR@", String.valueOf((Dark.WEB_MARK >> 16) & 255)).replace("@MKG@", String.valueOf((Dark.WEB_MARK >> 8) & 255))
                 .replace("@MKB@", String.valueOf(Dark.WEB_MARK & 255))

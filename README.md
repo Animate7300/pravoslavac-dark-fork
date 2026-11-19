@@ -49,7 +49,7 @@ Da bi panel radio, u LSPosed-u uključite modul i za „System Framework“ (and
 
 Napomene: font se primenjuje na ceo tekst datog tipa (slova u tekstu koja imaju drugu boju preko `ForegroundColorSpan`
 zadržavaju font tog teksta); „Посећени линкови“ nemaju poseban font ni veličinu (preglednik to ne dozvoljava),
-koriste podešavanje linkova. Veličina „Листе књига и молитви“ menja zoom teksta cele stranice.
+koriste podešavanje linkova. Veličina „Текст житија, књига и молитви“ menja zoom teksta cele stranice.
 
 ## Zahtevi
 

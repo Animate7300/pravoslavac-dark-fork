@@ -34,6 +34,7 @@ final class Themes {
             if (c != null) return Colors.hex(c.intValue());
             if ("c_web_bg".equals(key)) return color("c_bg");   // starije teme: pozadina knjiga = opsta pozadina
             if ("c_scroll".equals(key)) return color("c_red_bar");  // starije teme: klizač = boja crvenih linija
+            if ("c_web_body".equals(key)) return color("c_web_text");   // starije teme: tekst stranica = boja liste knjiga i molitvi
             if ("c_web_mark".equals(key)) {
                 // starije teme: svijetle zadrzavaju originalnu zelenu, tamne dobijaju svijetlozelenu
                 Integer b = Colors.parse(color("c_web_bg"));
@@ -81,7 +82,8 @@ final class Themes {
     private static final String[] CAL_KEYS = { "c_sun_bg", "c_sun_text", "c_month_text", "c_cal_title_bg",
             "c_cal_title_text", "c_holiday", "c_sub_text", "c_menu_text",
             "c_menu_divider", "c_cal_title_line", "c_sub_text1", "c_btn_bg", "c_btn_text", "c_btn_border",
-            "c_arrows", "c_cal_icon", "c_toolbar", "c_arrow_pressed", "c_toolbar_text", "c_day_date", "c_day_name", "c_meat", "c_fast" };
+            "c_arrows", "c_cal_icon", "c_toolbar", "c_arrow_pressed", "c_toolbar_text", "c_day_date", "c_day_name", "c_meat", "c_fast",
+            "c_web_body" };
 
     /**
      * Starije teme (sacuvane prije ovih boja) dobijaju zasebne vrijednosti: jednom se uzmu iz boja uklopljenih u
@@ -98,7 +100,8 @@ final class Themes {
         for (int i = 0; i < ORDER.length; i++) t.colors.put(ORDER[i], hex[i]);
         for (String k : CAL_KEYS) {
             if (!"c_toolbar".equals(k) && !"c_arrow_pressed".equals(k) && !"c_day_date".equals(k)
-                    && !"c_day_name".equals(k) && !"c_meat".equals(k) && !"c_fast".equals(k)) {
+                    && !"c_day_name".equals(k) && !"c_meat".equals(k) && !"c_fast".equals(k)
+                    && !"c_web_body".equals(k)) {
                 t.colors.put(k, Colors.def(k));
             }
         }

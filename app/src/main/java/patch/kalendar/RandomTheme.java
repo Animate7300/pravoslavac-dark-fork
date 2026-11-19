@@ -283,6 +283,7 @@ final class RandomTheme {
         put(m, "c_arrow_pressed", arrowPressed);
         put(m, "c_menu_text", menuText);
         put(m, "c_web_text", webText);
+        put(m, "c_web_body", webText);
         put(m, "c_tab_text", tabText);
         put(m, "c_web_link", link);
         put(m, "c_web_visited", visited);
