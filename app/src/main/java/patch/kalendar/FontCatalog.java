@@ -8,6 +8,8 @@ final class FontCatalog {
     static final String MODULE_APP_ID = "io.github.borko17.pravoslavac.dark";
     /** Aktivnost modula (spisak fontova za preuzimanje). */
     static final String MODULE_ACTIVITY = "patch.kalendar.MainActivity";
+    /** ContentProvider modula (FontProvider): preko njega prozor u Pravoslavcu trazi od modula mrezu (mora biti isto kao u manifestu). */
+    static final String PROVIDER_AUTHORITY = MODULE_APP_ID + ".fonts";
     /** Postavke modula: spisak preuzetih fontova ("list", odvojeni sa |) i verzije ("v_<slug>"). */
     static final String PREFS_INDEX = "fonts_index";
     /** Prefiks postavki jednog fonta: "reg" i "bold" (base64 TTF) i "ver". */

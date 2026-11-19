@@ -61,6 +61,8 @@ final class SettingsUi {
     private View drawerChild;
     private Object backCb;
     private boolean closed;
+    private FontPanel fontPanel;       // ugradjeno preuzimanje fontova u tabu Фонтови
+    private boolean fontPanelOpen;
     /** Odabrani tab: 0 = opcije (prekidaci), 1 = teme, 2 = fontovi. */
     private int tab;
     private int builtTab = -1;
@@ -172,6 +174,10 @@ final class SettingsUi {
     private void close(boolean apply) {
         if (closed) return;
         closed = true;
+        if (fontPanel != null) {
+            fontPanel.dispose();
+            fontPanel = null;
+        }
         if (current == this) current = null;
         unregisterBack();
         try {
@@ -459,6 +465,12 @@ final class SettingsUi {
         scroll.setBackgroundColor(bg());
         scroll.setFillViewport(true);
         scroll.addView(root);
+        scroll.getViewTreeObserver().addOnScrollChangedListener(new android.view.ViewTreeObserver.OnScrollChangedListener() {
+            @Override
+            public void onScrollChanged() {
+                if (tab == 2 && fontPanel != null && fontPanelOpen) fontPanel.onScroll();
+            }
+        });
 
         LinearLayout col = new LinearLayout(act);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -675,20 +687,43 @@ final class SettingsUi {
     }
 
     private void addFontSection(LinearLayout root) {
-        TextView hint = label("Фонтове преузима апликација модула (Православац нема приступ интернету). "
-                + "Измене се виде кад затвориш подешавања.", 13f, dim());
-        hint.setPadding(0, dp(8), 0, dp(4));
-        root.addView(hint);
-
-        TextView dl = label("＋ Преузми фонтове…", 16f, text());
-        dl.setPadding(0, dp(8), 0, dp(12));
-        dl.setOnClickListener(new View.OnClickListener() {
+        final FontPanel.Pal pal = fontPal();
+        TextView toggle = fontPanelOpen
+                ? FontPanel.pill(act, pal, "Затвори преузимање фонтова", FontPanel.TONAL, Icons.CLOSE, false)
+                : FontPanel.pill(act, pal, "Отвори преузимање фонтова", FontPanel.SUCCESS, Icons.DOWNLOAD, false);
+        toggle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                openFontManager();
+                fontPanelOpen = !fontPanelOpen;
+                build();
             }
         });
-        root.addView(dl);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.setMargins(0, dp(6), 0, dp(10));
+        root.addView(toggle, tlp);
+
+        if (fontPanelOpen) {
+            if (fontPanel != null && !fontPanel.sameColors(pal)) {   // promijenjena tema: napravi panel iznova
+                fontPanel.dispose();
+                fontPanel = null;
+            }
+            if (fontPanel == null) {
+                fontPanel = new FontPanel(act, pal, new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!closed) build();   // osvjezi nazive fontova u tabu
+                    }
+                });
+            }
+            View pv = fontPanel.view();
+            if (pv.getParent() instanceof ViewGroup) ((ViewGroup) pv.getParent()).removeView(pv);
+            root.addView(pv, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(14));
+            root.addView(new View(act), gap);
+            fontPanel.start();
+        }
 
         root.addView(makeFontItem(null, "Цео календар (сви текстови)"));
         for (String[] c : Colors.ALL) {
@@ -781,7 +816,14 @@ final class SettingsUi {
                     @Override
                     public void onClick(DialogInterface d, int which) {
                         if (which == items.length - 1) {
-                            openFontManager();
+                            fontPanelOpen = true;
+                            build();
+                            scroll.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    scroll.scrollTo(0, 0);
+                                }
+                            });
                             return;
                         }
                         String fam = which == 0 ? null : items[which];
@@ -801,16 +843,14 @@ final class SettingsUi {
                 .setNegativeButton("Одустани", null));
     }
 
-    /** Otvara ekran modula za preuzimanje fontova (ili objasni kako se otvara iz LSPosed-a). */
-    private void openFontManager() {
-        try {
-            Intent i = new Intent(Intent.ACTION_MAIN);
-            i.setClassName(FontCatalog.MODULE_APP_ID, FontCatalog.MODULE_ACTIVITY);
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            act.startActivity(i);
-        } catch (Throwable e) {
-            toast("Отворите модул Pravoslavac Dark из LSPosed-а да преузмете фонтове");
-        }
+    /** Boje prozora za fontove (iz teme; kad su teme iskljucene, originalne svijetle boje). */
+    private FontPanel.Pal fontPal() {
+        boolean t = themed();
+        int fill = t ? Dark.BTN_BG : 0xff2f3e5c;
+        return new FontPanel.Pal(bg(), text(), dim(), fill,
+                t ? Dark.BTN_TEXT : 0xffffffff,
+                t ? Dark.BTN_BORDER : Dark.mix(fill, 0xffffffff, 0.25f),
+                t && !Dark.light());
     }
 
     private void addThemeSection(LinearLayout root) {

@@ -28,19 +28,22 @@ i prikazu teksta.
 
 Poseban tab **Фонтови** u Podešavanjima (pored „Опције“ i „Теме“). Fontovi ne zavise od teme boja.
 
-Pravoslavac nema dozvolu za internet, pa fontove preuzima sam modul (on ima `INTERNET`, koristi se samo pri pritisku
-na „Preuzmi“):
+Pravoslavac nema dozvolu za internet, pa mrežu za njega radi sam modul (ima `INTERNET`, koristi se samo pri pritisku
+na „Preuzmi“). Sve se radi **u tabu „Фонтови“ unutar Pravoslavca**, bez prebacivanja u drugu aplikaciju: panel traži od modula
+preko njegovog `FontProvider`-a spisak, pregled i preuzimanje (dozvoljeni su samo Pravoslavac i Житије светих).
 
-1. Otvorite ekran modula: u LSPosed-u **Moduli → Pravoslavac Dark → podešavanja modula**, ili u Pravoslavcu
-   Podešavanja → Фонтови → „＋ Преузми фонтове…“.
+1. Podešavanja → Фонтови → **Преузимање фонтова ▾** (ili „＋ Преузми фонтове…“ u izboru fonta) otvara panel sa spiskom.
 2. Pritisnite **Preuzmi** uz željeni font. Spisak sadrži samo fontove sa ćirilicom (ugrađen je kraći spisak; dugme
-   „Osvježi spisak fontova sa Googlea“ povlači sve, a ima i pretragu). Font bez srpskih slova se odbacuje.
+   „Osvježi spisak“ povlači sve, a ima i pretragu). Font bez srpskih slova se odbacuje.
    Svaki font se prije preuzimanja prikazuje u pregledu (pangram sa svim slovima srpske ćirilice); za pregled se
-   preuzima samo mali isječak (nekoliko KB, čuva se u kešu), a uz font bez nekog slova stoji upozorenje „⚠“.
+   preuzima samo mali isječak (nekoliko KB, čuva se u kešu).
 3. U tabu „Фонтови“ izaberite font i veličinu (50–200 %) za svaki tekst posebno, ili odjednom za ceo kalendar
    Posebne stavke teksta u kalendaru: datum u traci dana, dan u istoj traci, „мрс“ i oznake postova (вода, уље и
    вино...) prepoznaju se po sadržaju teksta. Crkvenoslovenski fontovi (`triodion-ieUcs` i `IrmolSkun_0`) se automatski izuzimaju.
    (prvi red „Цео календар“). Izmene se vide kad zatvorite podešavanja.
+
+Da bi panel radio, u LSPosed-u uključite modul i za „System Framework“ (android), pa restartujte telefon (modul tako postaje vidljiv Pravoslavcu, Android 11+). Ako panel ipak javi da modul nije dostupan, provjerite to. Aplikacija modula nema svoj ekran za fontove
+(samo kratko obavještenje); preuzimanje je isključivo u Pravoslavcu, ali modul treba ostati instaliran.
 
 Napomene: font se primenjuje na ceo tekst datog tipa (slova u tekstu koja imaju drugu boju preko `ForegroundColorSpan`
 zadržavaju font tog teksta); „Посећени линкови“ nemaju poseban font ni veličinu (preglednik to ne dozvoljava),
