@@ -464,6 +464,27 @@ final class Dark {
         return tk;
     }
 
+    /**
+     * Samo font (bez boja): kad je tema iskljucena a prekidac "Fontovi" ukljucen. Uloga teksta se prepoznaje po sadrzaju
+     * (datum, dan, post) i po izvornoj boji teksta (tamni tekst, crveni praznici / naslovi).
+     */
+    static void fontsOnly(TextView tv, CharSequence cs) {
+        if (tv == null || inSettings(tv)) return;
+        String tk = textRole(cs);
+        if (tk != null) {
+            Fonts.apply(tv, tk);
+            return;
+        }
+        String sk = spanFontKey(cs);
+        if (sk != null) {
+            Fonts.apply(tv, sk);
+            return;
+        }
+        String fk = inTabs(tv) ? "c_tab_text" : fgKey(tv.getTextColors().getDefaultColor());
+        if (fk != null) Fonts.apply(tv, fk);
+        else Fonts.refresh(tv);
+    }
+
     /** Ključ fonta za tekst koji je (većim dijelom) obojen spanovima praznične / naslovne crvene boje, ili null. */
     static String spanFontKey(CharSequence cs) {
         if (!(cs instanceof Spanned) || cs.length() == 0) return null;

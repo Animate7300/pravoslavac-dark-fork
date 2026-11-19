@@ -452,9 +452,12 @@ final class SettingsUi {
                     Prefs.KEY_OPEN_CALENDAR, true));
             root.addView(makeSwitch("Текст поравнат лево", "Уместо обостраног поравнања.",
                     Prefs.KEY_LEFT, true));
-            root.addView(makeSwitch("Теме и фонтови",
-                    "Изаберите жељени фонт и тему у одабраним бојама.",
+            root.addView(makeSwitch("Теме",
+                    "Боје изабране теме (искључено: оригиналне боје апликације).",
                     Prefs.KEY_DARK, true));
+            root.addView(makeSwitch("Фонтови",
+                    "Изабрани фонтови и величине текста (раде и кад је тема искључена).",
+                    Prefs.KEY_FONTS_ON, Prefs.fontsOn()));
         } else if (tab == 1) {
             addThemeSection(root);
         } else {
@@ -569,7 +572,7 @@ final class SettingsUi {
                             if (!closed) build();
                         }
                     });
-                } else if (Prefs.KEY_LEFT.equals(key)) {
+                } else if (Prefs.KEY_LEFT.equals(key) || Prefs.KEY_FONTS_ON.equals(key)) {
                     dirty = true;
                 }
             }

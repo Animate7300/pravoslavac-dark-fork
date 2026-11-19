@@ -20,6 +20,7 @@ final class Prefs {
     static final String KEY_SKIP_SPLASH = "skip_splash";
     static final String KEY_DARK = "dark";
     static final String KEY_LEFT = "left_align";
+    static final String KEY_FONTS_ON = "fonts_on";   // prekidac "Fontovi" (odvojen od prekidaca "Teme")
     /** JSON {"f": {kljuc teksta: naziv fonta}, "s": {kljuc teksta: velicina u %}} (fontovi ne zavise od teme). */
     static final String KEY_FONTS = "fonts";
 
@@ -145,6 +146,19 @@ final class Prefs {
 
     /** Prekidac "Teme": ukljucen = tamna tema u bojama odabrane teme, iskljucen = originalne boje. */
     static boolean dark() { return get(KEY_DARK, true); }
+
+    /**
+     * Prekidac "Fontovi": izabrani fontovi i velicine teksta. Radi i kad je tema iskljucena.
+     * Dok se prekidac ne podesi, prati prekidac teme (kao u ranijim verzijama).
+     */
+    static synchronized boolean fontsOn() {
+        try {
+            if (sp().contains(KEY_FONTS_ON)) return sp().getBoolean(KEY_FONTS_ON, true);
+        } catch (Throwable ignored) {
+            // vrati ponasanje teme
+        }
+        return dark();
+    }
 
     static boolean left() { return get(KEY_LEFT, true); }
 }

@@ -222,7 +222,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
                 protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         WebView wv = (WebView) param.thisObject;
-                        if (Prefs.dark() || Prefs.left()) wv.getSettings().setJavaScriptEnabled(true);
+                        if (Prefs.dark() || Prefs.left() || Prefs.fontsOn()) wv.getSettings().setJavaScriptEnabled(true);
                         if (Prefs.dark()) wv.setBackgroundColor(Dark.WEB_BG);
                         Object a0 = param.args.length > 0 ? param.args[0] : null;
                         boolean js = a0 instanceof String && ((String) a0).startsWith("javascript:");
@@ -382,7 +382,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
      * prije nego sto je obojena (bljesak originalnih boja pri brzom prelistavanju).
      */
     static void hideWebView(final WebView wv) {
-        if (!Prefs.dark() && !Prefs.left()) return;
+        if (!Prefs.dark() && !Prefs.left() && !Prefs.fontsOn()) return;
         try {
             Object old = wv.getTag(TAG_HIDE);
             if (old instanceof Runnable) wv.removeCallbacks((Runnable) old);
@@ -584,7 +584,16 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        if (!Prefs.dark()) return;
+                        if (!Prefs.dark()) {   // tema iskljucena: samo fontovi (ako je prekidac "Fontovi" ukljucen)
+                            if (Prefs.fontsOn() && param.args[0] instanceof CharSequence) {
+                                try {
+                                    Dark.fontsOnly((android.widget.TextView) param.thisObject, (CharSequence) param.args[0]);
+                                } catch (Throwable t) {
+                                    XposedBridge.log(t);
+                                }
+                            }
+                            return;
+                        }
                         try {
                             Object o = param.args[0];
                             if (o instanceof CharSequence) {
@@ -634,7 +643,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
     private static final XC_MethodHook INTERCEPT = new XC_MethodHook() {
         @Override
         protected void beforeHookedMethod(MethodHookParam param) {
-            if (!Prefs.dark() && !Prefs.left()) return;
+            if (!Prefs.dark() && !Prefs.left() && !Prefs.fontsOn()) return;
             try {
                 if (!(param.args[0] instanceof WebView) || !(param.args[1] instanceof WebResourceRequest)) return;
                 String path = ((WebResourceRequest) param.args[1]).getUrl().getPath();
@@ -695,6 +704,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
         out.write(data);
         if (Prefs.left()) out.write(("\n" + Assets.LEFT_CSS).getBytes("UTF-8"));
         if (Prefs.dark()) out.write(("\n" + Assets.darkCss()).getBytes("UTF-8"));
+        else if (Prefs.fontsOn()) out.write(("\n" + Fonts.webCss()).getBytes("UTF-8"));
         return out.toByteArray();
     }
 
@@ -714,6 +724,7 @@ public class Hook implements IXposedHookLoadPackage, IXposedHookInitPackageResou
         StringBuilder css = new StringBuilder();
         if (Prefs.left()) css.append(Assets.LEFT_CSS);
         if (Prefs.dark()) css.append(Assets.darkCss());
+        else if (Prefs.fontsOn()) css.append(Fonts.webCss());
         String tag = "<style id=\"__dkcss0\">" + css + "</style>";
         if (Prefs.dark()) tag += "<script>" + Assets.navJs() + "</script>";
         java.util.regex.Matcher he = java.util.regex.Pattern.compile("(?i)</head>").matcher(s);

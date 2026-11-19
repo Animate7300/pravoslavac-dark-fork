@@ -77,6 +77,7 @@ final class FontPanel {
     private LinearLayout list;
     private boolean started;
     private TextView count;
+    private TextView installedInfo;
     private String filter = "";
     private boolean dead;
     private boolean loaded;
@@ -195,11 +196,12 @@ final class FontPanel {
             fg = 0xff000000 | p.btnText;
             press = Dark.mix(fill, fg, 0.22f);
             stroke = 0xff000000 | p.btnBorder;
-        } else if (kind == SUCCESS) {
-            fill = p.dark ? 0xff2e7d32 : 0xff388e3c;
-            fg = 0xffffffff;
-            press = Dark.mix(fill, 0xffffffff, 0.22f);
-            stroke = p.dark ? 0xff66bb6a : 0xff2e7d32;
+        } else if (kind == SUCCESS) {   // isti stil kao DANGER: slova u boji, blijeda pozadina iste nijanse
+            int green = p.dark ? 0xff81c784 : 0xff2e7d32;
+            fill = Dark.mix(p.bg, green, 0.16f);
+            press = Dark.mix(p.bg, green, 0.32f);
+            fg = green;
+            stroke = Dark.mix(p.bg, green, 0.45f);
         } else if (kind == DANGER) {
             int red = p.dark ? 0xffff8a80 : 0xffc62828;
             fill = Dark.mix(p.bg, red, 0.16f);
@@ -316,8 +318,11 @@ final class FontPanel {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         count = text("Учитавам списак…", 13f, pal.dim);
-        count.setPadding(dp(2), dp(8), 0, dp(8));
+        count.setPadding(dp(2), dp(8), 0, 0);
         root.addView(count);
+        installedInfo = text("", 13f, pal.dark ? 0xff81c784 : 0xff2e7d32);
+        installedInfo.setPadding(dp(2), dp(2), 0, dp(8));
+        root.addView(installedInfo);
 
         list = new LinearLayout(act);
         list.setOrientation(LinearLayout.VERTICAL);
@@ -569,6 +574,10 @@ final class FontPanel {
             count.setTextColor(pal.dark ? 0xff81c784 : 0xff2e7d32);
             count.setText(totalCount + " " + fontWord(totalCount) + " са српском ћирилицом.");
         }
+        if (installedInfo != null) {
+            int n = installed.size();
+            installedInfo.setText("Преузето: " + n + " " + fontWord(n));
+        }
     }
 
     /** фонт / фонта / фонтова (уз број). */
@@ -704,6 +713,7 @@ final class FontPanel {
                             markChanged();
                         }
                         bindRow(fam);
+                        updateCount();
                         toast(fe == null ? fam + ": преузето" : fam + ": " + fe);
                     }
                 });
@@ -731,6 +741,7 @@ final class FontPanel {
                         if (fe == null) {
                             installed.remove(fam);
                             markChanged();
+                            updateCount();
                             if (!inCatalog(fam)) {
                                 build();   // font nije u katalogu: red nestaje
                                 return;
