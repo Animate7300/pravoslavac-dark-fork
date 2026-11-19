@@ -63,6 +63,10 @@ final class Dark {
     static int WEB_TEXT = 0xffd9d4c7;
     /** Tekst stranica u WebView-u (zitija, knjige, molitve); WEB_TEXT je samo za spisak knjiga i molitvi. */
     static int WEB_BODY = 0xffd9d4c7;
+    /** Podesavanja modula: pozadina, tekst i boja prekidaca (ne diraju kalendar). */
+    static int SET_BG = 0xff121212;
+    static int SET_TEXT = 0xffe1e6ea;
+    static int SET_SWITCH = 0xff6495ed;
     static int WEB_HEAD2 = 0xffe6e1d6;
     static int WEB_LINK = 0xff8ab4f8;
     static int WEB_VISITED = 0xffc4a5f0;
@@ -113,6 +117,9 @@ final class Dark {
         WEB_BG = Prefs.color("c_web_bg");
         WEB_TEXT = Prefs.color("c_web_text");
         WEB_BODY = Prefs.color("c_web_body");
+        SET_BG = Prefs.color("c_set_bg");
+        SET_TEXT = Prefs.color("c_set_text");
+        SET_SWITCH = Prefs.color("c_switch");
         WEB_HEAD2 = Prefs.color("c_web_head2");
         WEB_LINK = Prefs.color("c_web_link");
         WEB_VISITED = Prefs.color("c_web_visited");

@@ -16,6 +16,7 @@ final class Colors {
             { "c_month_bar",  "Позадина месеца и године",           "1d1f23" },
             { "c_cal_title_bg",   "Позадина наслова испод месеца",  "181a1d" },
             { "c_btn_bg",     "Позадина дугмади (претходно, календар, садржај, следеће...)", "b02e31" },
+            { "c_set_bg",     "Позадина подешавања",                "121212" },
             // Текст
             { "c_text",       "Текст календара",                    "e1e6ea" },
             { "c_day_date",   "Датум у траци дана",                 "e1e6ea" },
@@ -38,6 +39,7 @@ final class Colors {
             { "c_toolbar_text", "Текст горње траке (Православац)",  "ffffff" },
             { "c_web_link",   "Линкови",                            "9194f2" },
             { "c_web_visited","Посећени линкови",                   "e293e7" },
+            { "c_set_text",   "Текст подешавања",                   "e1e6ea" },
             // Елементи
             { "c_bar",        "Табови",                             "1f2538" },
             { "c_scroll",     "Клизач",                             "b02e31" },
@@ -46,6 +48,7 @@ final class Colors {
             { "c_arrows",     "Стрелице за месеце",                 "ffffff" },
             { "c_cal_icon",   "Иконица календара (нијанса)",       "3d8fd1" },
             { "c_arrow_pressed", "Означена стрелица (при додиру)", "4a4d55" },
+            { "c_switch",     "Прекидачи у опцијама",               "6495ed" },
             // Линије и разделници
             { "c_tab_line",   "Испод активног таба",                "dd3c3f" },
             { "c_red_bar",    "Испод датума у календару",           "b02e31" },
@@ -77,7 +80,12 @@ final class Colors {
 
     /** Font se bira za sve tekstove osim posjecenih linkova (preglednik ne dozvoljava poseban font za :visited). */
     static boolean hasFont(String key) {
-        return isText(key) && !"c_web_visited".equals(key);
+        return isText(key) && !"c_web_visited".equals(key) && !"c_set_text".equals(key);
+    }
+
+    /** Tekst koji se prikazuje u listi fontova (tekst podesavanja nema poseban font, a posjeceni linkovi imaju samo napomenu). */
+    static boolean fontListed(String key) {
+        return isText(key) && !"c_set_text".equals(key);
     }
 
     /** Naslov grupe koja pocinje ovom bojom, ili null. */

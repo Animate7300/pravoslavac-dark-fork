@@ -49,7 +49,7 @@ import de.robv.android.xposed.XposedHelpers;
 /**
  * Podesavanja modula unutar aplikacije Pravoslavac (Meni -> Опције -> Подешавања).
  * Izvrsava se u procesu Pravoslavca; postavke se cuvaju u njegovim podacima (Prefs.FILE).
- * Pozadina ekrana je Dark.BG, a tekst Dark.TEXT (c_bg i c_text odabrane teme).
+ * Pozadina ekrana je Dark.SET_BG, a tekst Dark.SET_TEXT (c_set_bg i c_set_text odabrane teme), prekidaci Dark.SET_SWITCH.
  */
 final class SettingsUi {
 
@@ -404,7 +404,12 @@ final class SettingsUi {
     }
 
     private int bg() {
-        return themed() ? Dark.BG : 0xfffaf5e9;
+        return themed() ? Dark.SET_BG : 0xfffaf5e9;
+    }
+
+    /** Pozadina podesavanja je svijetla (odlucuje o svijetloj/tamnoj varijanti dijaloga). */
+    private boolean setLight() {
+        return Dark.lum(bg()) >= 0.5f;
     }
 
     private int bar() {
@@ -416,7 +421,7 @@ final class SettingsUi {
     }
 
     private int text() {
-        return themed() ? Dark.TEXT : 0xff000000;
+        return themed() ? Dark.SET_TEXT : 0xff000000;
     }
 
     /** Sekundarni tekst: boja teksta pomijesana s pozadinom. */
@@ -430,7 +435,7 @@ final class SettingsUi {
     }
 
     private AlertDialog.Builder builder() {
-        return new AlertDialog.Builder(act, themed() && !Dark.light()
+        return new AlertDialog.Builder(act, themed() && !setLight()
                 ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
     }
 
@@ -542,6 +547,34 @@ final class SettingsUi {
         return bar;
     }
 
+    /** Boja prekidaca (c_switch): ukljucen = boja teme, iskljucen = neutralna nijansa teksta. */
+    private void tintSwitch(Switch sw) {
+        int on = 0xff000000 | Dark.SET_SWITCH;
+        int offThumb = Dark.mix(bg(), text(), 0.65f);
+        int offTrack = 0x55000000 | (text() & 0xffffff);
+        int onTrack = 0x88000000 | (on & 0xffffff);
+        int[][] st = { new int[] { android.R.attr.state_checked }, new int[0] };
+        android.content.res.ColorStateList thumb = new android.content.res.ColorStateList(st, new int[] { on, offThumb });
+        android.content.res.ColorStateList track = new android.content.res.ColorStateList(st, new int[] { onTrack, offTrack });
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                sw.setThumbTintList(thumb);
+                sw.setTrackTintList(track);
+            } else {
+                // Android 5.x: nema setThumbTintList; boji se direktno unutrasnje drawable-e
+                java.lang.reflect.Field tf = Switch.class.getDeclaredField("mThumbDrawable");
+                java.lang.reflect.Field kf = Switch.class.getDeclaredField("mTrackDrawable");
+                tf.setAccessible(true);
+                kf.setAccessible(true);
+                android.graphics.drawable.Drawable td = (android.graphics.drawable.Drawable) tf.get(sw);
+                android.graphics.drawable.Drawable kd = (android.graphics.drawable.Drawable) kf.get(sw);
+                if (td != null) td.mutate().setTintList(thumb);
+                if (kd != null) kd.mutate().setTintList(track);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     private View makeSwitch(String title, String desc, final String key, boolean def) {
         LinearLayout box = new LinearLayout(act);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -552,6 +585,7 @@ final class SettingsUi {
         sw.setTextSize(18f);
         sw.setTextColor(text());
         sw.setChecked(sp.getBoolean(key, def));
+        if (themed()) tintSwitch(sw);
         sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton b, boolean checked) {
@@ -766,7 +800,7 @@ final class SettingsUi {
 
         root.addView(makeFontItem(null, "Цео календар (сви текстови)"));
         for (String[] c : Colors.ALL) {
-            if (Colors.isText(c[0])) root.addView(makeFontItem(c[0], c[1]));
+            if (Colors.fontListed(c[0])) root.addView(makeFontItem(c[0], c[1]));
         }
     }
 
@@ -889,7 +923,7 @@ final class SettingsUi {
         return new FontPanel.Pal(bg(), text(), dim(), fill,
                 t ? Dark.BTN_TEXT : 0xffffffff,
                 t ? Dark.BTN_BORDER : Dark.mix(fill, 0xffffffff, 0.25f),
-                t && !Dark.light());
+                t && !setLight());
     }
 
     private void addThemeSection(LinearLayout root) {
@@ -1101,7 +1135,7 @@ final class SettingsUi {
     /** withExit = true dodaje na dno red "Одустани" koji samo zatvara meni. */
     private void showIconMenu(String titleText, int[] icons, String[] captions, Runnable[] actions,
             boolean withExit) {
-        final Dialog d = new Dialog(act, themed() && !Dark.light()
+        final Dialog d = new Dialog(act, themed() && !setLight()
                 ? AlertDialog.THEME_DEVICE_DEFAULT_DARK : AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
@@ -1562,7 +1596,7 @@ final class SettingsUi {
                 h.setText(g);
                 h.setTextSize(13f);
                 h.setTypeface(Typeface.DEFAULT_BOLD);
-                h.setTextColor(Dark.light() ? 0xff1a56b0 : 0xff8ab4f8);
+                h.setTextColor(setLight() ? 0xff1a56b0 : 0xff8ab4f8);
                 h.setPadding(0, dp(14), 0, dp(4));
                 rows.addView(h);
             }
