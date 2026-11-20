@@ -437,7 +437,6 @@ final class Fonts {
     static void apply(TextView tv, String key) {
         if (tv == null || key == null) return;
         try {
-            if (!Prefs.dark()) return;
             Object oldKey = tv.getTag(TAG_FKEY);
             if (Prefs.keepSlavonic()) {   // tekst u crkvenoslovenskom fontu aplikacije ostaje kakav jeste
                 Object fo = tv.getTag(TAG_FORIG);
@@ -516,7 +515,6 @@ final class Fonts {
     /** Velicina teksta stranica u WebView-u ("Текст житија, књига и молитви"): zoom teksta WebView-a (pozivati na pocetku ucitavanja). */
     static void applyWebZoom(android.webkit.WebView wv) {
         try {
-            if (!Prefs.dark()) return;
             android.webkit.WebSettings ws = wv.getSettings();
             Object o = wv.getTag(TAG_ZOOM0);
             int base;
@@ -584,7 +582,6 @@ final class Fonts {
     /** CSS sa @font-face i pravilima font-family za tekstove u WebView-u (prazno ako nije izabran nijedan font). */
     static String webCss() {
         try {
-            if (!Prefs.dark()) return "";
             StringBuilder faces = new StringBuilder();
             StringBuilder rules = new StringBuilder();
             Set<String> done = new HashSet<String>();

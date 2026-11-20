@@ -143,8 +143,19 @@ final class Prefs {
 
     static boolean skipSplash() { return get(KEY_SKIP_SPLASH, true); }
 
-    /** Prekidac "Teme": ukljucen = tamna tema u bojama odabrane teme, iskljucen = originalne boje. */
-    static boolean dark() { return get(KEY_DARK, true); }
+    /**
+     * Boje odabrane teme se primjenjuju. Netacno je kad je izabrana tema "Православац" (originalne boje aplikacije);
+     * tada se boje ne diraju, a fontovi i ostale opcije rade i dalje. (Stari prekidac KEY_DARK = iskljucen vrijedi
+     * kao "Православац" dok se postavke ne otvore.)
+     */
+    static boolean dark() {
+        if (!get(KEY_DARK, true)) return false;
+        try {
+            return !Themes.isOrig(sp().getString(Themes.KEY_SEL, null));
+        } catch (Throwable t) {
+            return true;
+        }
+    }
 
     static boolean left() { return get(KEY_LEFT, true); }
 }

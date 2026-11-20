@@ -74,6 +74,8 @@ final class SettingsUi {
     /** Osvjezava stanje dugmeta za vracanje u otvorenom dijalogu (ili null). */
     private Runnable undoRefresh;
     private String selId;
+    /** Stanje boja u aplikaciji trenutno: true = originalne ("Православац"), false = boje teme. */
+    private boolean appliedOrig;
 
     /** Neka postavka koja trazi ponovno kreiranje ekrana je promijenjena. */
     private boolean dirty;
@@ -398,9 +400,9 @@ final class SettingsUi {
 
     // ------------------------------------------------------------------ izgled
 
-    /** Teme uključene (boje odabrane teme) ili isključene (originalne boje aplikacije). */
+    /** Izabrana je tema sa bojama (true) ili "Православац" = originalne boje aplikacije (false). */
     private boolean themed() {
-        return sp.getBoolean(Prefs.KEY_DARK, true);
+        return !Themes.isOrig(selId);
     }
 
     private int bg() {
@@ -451,7 +453,6 @@ final class SettingsUi {
 
     /** (Ponovo) gradi cijeli ekran; cuva poziciju skrolovanja. */
     private void build() {
-        if (!themed() && tab != 0) tab = 0;   // tema/fontovi iskljuceni: tabovi Теме i Фонтови se ne prikazuju
         final int scrollY = (scroll != null && builtTab == tab) ? scroll.getScrollY() : 0;
         builtTab = tab;
 
@@ -468,9 +469,6 @@ final class SettingsUi {
                     Prefs.KEY_OPEN_CALENDAR, true));
             root.addView(makeSwitch("Текст поравнат лево", "Уместо обостраног поравнања.",
                     Prefs.KEY_LEFT, true));
-            root.addView(makeSwitch("Теме и фонтови",
-                    "Изаберите жељени фонт и тему у одабраним бојама.",
-                    Prefs.KEY_DARK, true));
         } else if (tab == 1) {
             addThemeSection(root);
         } else {
@@ -513,7 +511,7 @@ final class SettingsUi {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setBackgroundColor(bar());
         String[] names = { "Опције", "Теме", "Фонтови" };
-        int shown = themed() ? names.length : 1;   // prekidac "Теме и фонтови" iskljucen: samo Опције
+        int shown = names.length;
         for (int i = 0; i < shown; i++) {
             final int idx = i;
             FrameLayout cell = new FrameLayout(act);
@@ -631,20 +629,37 @@ final class SettingsUi {
         String json = sp.getString(Themes.KEY_THEMES, null);
         themes = Themes.parse(json);
         selId = Themes.find(themes, sp.getString(Themes.KEY_SEL, null)).id;
-        if (json == null) saveThemes(); // prvo otvaranje: upisi ugradjene teme
+        boolean legacyOff = !sp.getBoolean(Prefs.KEY_DARK, true);   // stari prekidac "Теме и фонтови" je bio iskljucen
+        if (legacyOff) selId = Themes.ORIG_ID;                       // to je sada tema "Православац"
+        appliedOrig = Themes.isOrig(selId);
+        if (json == null || legacyOff) saveThemes(); // prvo otvaranje: upisi ugradjene teme
     }
 
     /** Upisuje teme i odmah primjenjuje boje (Dark + resursi); ekran se osvjezava pri zatvaranju. */
-    private void saveThemes() {
+    private boolean saveThemes() {
         sp.edit()
                 .putString(Themes.KEY_THEMES, Themes.toJson(themes))
                 .putString(Themes.KEY_SEL, selId)
+                .putBoolean(Prefs.KEY_DARK, true)   // stari prekidac vise ne postoji: tema se bira u listi
                 .commit();
         Prefs.refresh();
         Dark.reload();
-        Hook.reapplyResources();
-        applyToolbarNow();
+        boolean nowOrig = Themes.isOrig(selId);
+        boolean changed = nowOrig != appliedOrig;
+        appliedOrig = nowOrig;
+        if (nowOrig) {
+            if (changed) {
+                // "Православац": vrati originalne boje resursa
+                boolean ok = Hook.restoreResources(act);
+                darkOff = !ok;
+            }
+        } else {
+            darkOff = false;
+            Hook.reapplyResources();
+            applyToolbarNow();
+        }
         dirty = true;
+        return changed;
     }
 
     /** Odmah oboji gornju traku aplikacije (ne ceka zatvaranje podesavanja). */
@@ -947,8 +962,17 @@ final class SettingsUi {
             rb.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    if (t.id.equals(selId)) return;
                     selId = t.id;
-                    saveThemes();
+                    boolean changed = saveThemes();
+                    if (changed) {
+                        if (!darkOff) {
+                            // prelaz "Православац" <-> tema sa bojama: odmah ponovo napravi ekran (isti tab)
+                            recreateKeepingSettings();
+                            return;
+                        }
+                        toast("Поново покрени апликацију.");
+                    }
                     build();
                 }
             });
@@ -968,6 +992,12 @@ final class SettingsUi {
                 row.addView(dot, lp);
             }
 
+            if (Themes.isOrig(t.id)) {
+                // "Православац": samo za izbor, bez opcija (uredi, preimenuj, kopiraj, obrisi)
+                row.addView(new View(act), new LinearLayout.LayoutParams(dp(38), 1));
+                root.addView(row);
+                continue;
+            }
             ImageView more = new ImageView(act);
             more.setImageDrawable(Icons.get(Icons.OPTIONS, text(), dp(22)));
             more.setScaleType(ImageView.ScaleType.CENTER);
@@ -1284,6 +1314,7 @@ final class SettingsUi {
             @Override
             public void onText(String name) {
                 Themes.Theme src = Themes.find(themes, selId);
+                if (Themes.isOrig(src.id)) src = Themes.find(themes, null);   // "Православац" nema boja za kopiranje
                 Themes.Theme n = src.copy("t" + System.currentTimeMillis(), name);
                 themes.add(n);
                 selId = n.id;
@@ -1432,7 +1463,9 @@ final class SettingsUi {
     }
 
     private void deleteTheme(final Themes.Theme t) {
-        if (themes.size() <= 1) {
+        int editable = 0;
+        for (Themes.Theme x : themes) if (!Themes.isOrig(x.id)) editable++;
+        if (editable <= 1) {
             toast("Мора остати бар једна тема");
             return;
         }
@@ -1444,7 +1477,7 @@ final class SettingsUi {
                     public void onClick(DialogInterface d, int w) {
                         themes.remove(t);
                         clearUndo(t);
-                        if (selId.equals(t.id)) selId = themes.get(0).id;
+                        if (selId.equals(t.id)) selId = Themes.find(themes, null).id;
                         saveThemes();
                         build();
                     }

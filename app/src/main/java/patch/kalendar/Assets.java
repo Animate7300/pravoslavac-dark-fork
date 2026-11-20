@@ -97,7 +97,8 @@ final class Assets {
 
 
     static String darkJs() {
-        String css = darkCss().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n");
+        boolean colors = Prefs.dark();   // false = tema "Православац": samo fontovi, boje stranica se ne diraju
+        String css = (colors ? darkCss() : Fonts.webCss()).replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n");
         String markFont = Fonts.cssFamily("c_web_mark");   // font oznaka verzija (zelene oznake) ili null
         String titleFont = Fonts.cssFamily("c_title");     // font naslova ili null
         return DARK_JS.replace("@NAVCORE@", navCore()).replace("@TEXT@", hex(Dark.WEB_BODY)).replace("@TITLE@", hex(Dark.TITLE)).replace("@MARK@", hex(Dark.WEB_MARK))
@@ -110,6 +111,8 @@ final class Assets {
                 .replace("@MARKZOOM@", Prefs.fontSize("c_web_mark") == 100 ? "" : Prefs.fontSize("c_web_mark") + "%")
                 .replace("@TITLEFONT@", titleFont == null ? "" : titleFont)
                 .replace("@TITLEZOOM@", Prefs.fontSize("c_title") == 100 ? "" : Prefs.fontSize("c_title") + "%")
+                .replace("@COLORS@", colors ? "true" : "false")
+                .replace("@NOMARK@", colors ? "" : "function mark(e){}")
                 .replace("@CSS@", css);
     }
 
@@ -117,9 +120,10 @@ final class Assets {
             "(function(){\n"
                     + "  if(window.__dkRun){window.__dkRun(document.documentElement);return;}\n"
                     + "  @NAVCORE@\n"
+                    + "  @NOMARK@\n"
                     + "  if(CS){try{csScan(document.documentElement);}catch(x){}}\n"
                     + "  try{var st=document.getElementById('__dkcss');if(!st){st=document.createElement('style');st.id='__dkcss';(document.head||document.documentElement).appendChild(st);}st.textContent='@CSS@';}catch(x){}\n"
-                    + "  var LIGHT=@LIGHT@;var MARKFONT='@MARKFONT@';var MARKZOOM='@MARKZOOM@';\n"
+                    + "  var COLORS=@COLORS@;var LIGHT=@LIGHT@;var MARKFONT='@MARKFONT@';var MARKZOOM='@MARKZOOM@';\n"
                     + "  var TITLEFONT='@TITLEFONT@';var TITLEZOOM='@TITLEZOOM@';\n"
                     + "  var SKIP={SCRIPT:1,STYLE:1,IMG:1,SVG:1,LINK:1,META:1,HEAD:1,TITLE:1,BR:1,HR:1,CANVAS:1,VIDEO:1,AUDIO:1,IFRAME:1,OBJECT:1,EMBED:1,NOSCRIPT:1};\n"
                     + "  function parse(c){var m=/rgba?\\(([^)]+)\\)/.exec(c);if(!m)return null;var a=m[1].split(',');return{r:+a[0],g:+a[1],b:+a[2],a:a.length>3?+a[3]:1};}\n"
@@ -147,10 +151,10 @@ final class Assets {
                     + "  function fix(e){\n"
                     + "    if(e.nodeType!==1||SKIP[e.tagName.toUpperCase()])return;\n"
                     + "    var tn=e.tagName.toUpperCase();\n"
-                    + "    if((tn==='A'||tn==='BUTTON'||tn==='INPUT'||tn==='SPAN'||tn==='DIV')&&isBtn(e)){mark(e);return;}\n"
+                    + "    if(COLORS&&(tn==='A'||tn==='BUTTON'||tn==='INPUT'||tn==='SPAN'||tn==='DIV')&&isBtn(e)){mark(e);return;}\n"
                     + "    var cs=getComputedStyle(e),c=parse(cs.color),b=parse(cs.backgroundColor),v;\n"
                     + "    if(CS&&(e.hasAttribute('data-dkcs')||e.getAttribute('data-dkcs')==='1'||CSF.test(cs.fontFamily))){e.setAttribute('data-dkcs','1');}\n"
-                    + "    if(c&&(v=fgMap(c)))e.style.setProperty('color',v,'important');\n"
+                    + "    if(COLORS&&c&&(v=fgMap(c)))e.style.setProperty('color',v,'important');\n"
                     + "    if(!e.hasAttribute('data-dkcs')&&c&&(TITLEFONT||TITLEZOOM)){\n"
                     + "      var h3=toHsl(c.r,c.g,c.b);\n"
                     + "      if((lum(c)<0.5&&h3[1]>=0.6&&(h3[0]<=15||h3[0]>=345))||(c.r===@TITR@&&c.g===@TITG@&&c.b===@TITB@)){\n"
@@ -163,10 +167,10 @@ final class Assets {
                     + "      if(TITLEZOOM)e.style.setProperty('zoom',TITLEZOOM,'important');\n"
                     + "    }\n"
                     + "    if(c&&(MARKFONT||MARKZOOM)){var h2=toHsl(c.r,c.g,c.b);if((lum(c)<0.5&&h2[1]>=0.2&&h2[0]>=75&&h2[0]<=165)||(c.r===@MKR@&&c.g===@MKG@&&c.b===@MKB@)){if(MARKFONT)e.style.setProperty('font-family',MARKFONT,'important');if(MARKZOOM)e.style.setProperty('zoom',MARKZOOM,'important');}}\n"
-                    + "    if(e===document.body||e===document.documentElement){e.style.setProperty('background-color','@BG@','important');e.style.setProperty('background-image','none','important');}\n"
+                    + "    if(!COLORS){}else if(e===document.body||e===document.documentElement){e.style.setProperty('background-color','@BG@','important');e.style.setProperty('background-image','none','important');}\n"
                     + "    else if(b&&(v=bgMap(b)))e.style.setProperty('background-color',v,'important');\n"
                     + "    var bi=cs.backgroundImage;\n"
-                    + "    if(bi&&bi!=='none'&&/pozadina|fine-grain|paper|diagonal-maze/i.test(bi))e.style.setProperty('background-image','none','important');\n"
+                    + "    if(COLORS&&bi&&bi!=='none'&&/pozadina|fine-grain|paper|diagonal-maze/i.test(bi))e.style.setProperty('background-image','none','important');\n"
                     + "  }\n"
                     + "  function run(root){\n"
                     + "    try{\n"

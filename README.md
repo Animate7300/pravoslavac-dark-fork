@@ -73,21 +73,26 @@ Ekran ima dva taba: **Opcije** i **Teme**.
 
 ### Tab Opcije
 
-Sve četiri opcije su podrazumevano uključene.
+Sve tri opcije su podrazumevano uključene.
 
 | Opcija | Šta radi |
 | --- | --- |
 | **Preskoči uvodni ekran** | Aplikacija se otvara bez uvodnog ekrana. |
 | **Aplikacija otvara kalendar** | Pri pokretanju se otvara kalendar (tekući mesec i godina) umesto žitija za taj dan. |
 | **Tekst poravnat levo** | Isključuje obostrano poravnanje teksta. |
-| **Teme** | Uključeno: aplikacija koristi boje odabrane teme. Isključeno: originalne boje aplikacije. |
 
-Promena opcije „Teme“ i „Tekst poravnat levo“ primenjuje se kad zatvorite podešavanja. Ako se pri isključivanju
-teme neke originalne boje ne mogu vratiti u hodu, aplikacija će zatražiti ponovno pokretanje.
+Promena opcije „Tekst poravnat levo“ primenjuje se kad zatvorite podešavanja.
+
+Nema više prekidača za isključivanje tema: originalne boje aplikacije su ugrađena tema **Православац** (vidi niže).
 
 ### Tab Teme
 
-Gore je lista tema; dodir bira temu, a dugme **⋮** pored nje otvara meni:
+Gore je lista tema. Prva je ugrađena tema **Православац**: originalne boje aplikacije (modul ih ne dira). Ona je samo za
+izbor, nema dugme **⋮** (nema uređivanja, preimenovanja, kopiranja ni brisanja). Fontovi, levo poravnanje i ostale opcije
+rade i uz nju. Prelaz između nje i ostalih tema ponovo pravi ekran aplikacije. Ako je ranije bio isključen prekidač „Teme“,
+izabrana je „Православац“.
+
+Dodir na ostale teme bira ih, a dugme **⋮** pored njih otvara meni:
 
 - **Uredi boje** – dodir na kvadrat boje otvara birač boje (ili upišite hex šifru),
 - **Preimenuj**,

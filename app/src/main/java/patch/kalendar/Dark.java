@@ -1655,4 +1655,132 @@ final class Dark {
         }
         return sb;
     }
+
+    // ------------------------------------------------------------------ samo fontovi (tema "Православац")
+    // Boje aplikacije se ne diraju; ovdje se samo prepoznaje uloga teksta (isto kao gore) i primjenjuje font/velicina.
+
+    /** Svi TextView-ovi unutar v (ukljucujuci v) dobijaju font teksta sa datim kljucem. */
+    private static void fontsIn(View v, String key) {
+        if (v instanceof TextView) Fonts.apply((TextView) v, key);
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) fontsIn(g.getChildAt(i), key);
+        }
+    }
+
+    /** Pozadina nedeljne trake (originalna boja): samo oznaka i font teksta unutar nje. */
+    static void fontSunday(View v) {
+        boolean first = v.getTag(TAG_SUN) == null;
+        v.setTag(TAG_SUN, Boolean.TRUE);
+        if (first) fontsIn(v, "c_sun_text");
+    }
+
+    /** Datum, dan ili oznaka (mrs / postovi): samo font. Vraca kljuc ili null. */
+    static String fontTextRole(TextView tv, CharSequence cs) {
+        if (inSettings(tv)) return null;
+        String tk = textRole(cs);
+        if (tk == null) {
+            if (tv.getTag(TAG_TROLE) != null) tv.setTag(TAG_TROLE, null);
+            return null;
+        }
+        tv.setTag(TAG_TROLE, tk);
+        Fonts.apply(tv, tk);
+        return tk;
+    }
+
+    /** Tekst koji se postavlja u TextView (tema "Православац"): samo font, tekst i boje ostaju netaknuti. */
+    static void fontText(TextView tv, CharSequence cs) {
+        if (inSettings(tv)) return;
+        String rk = roleKey(tv);
+        if (rk == null && isCalTitleText(cs)) {
+            tv.setTag(TAG_TITLE, Boolean.TRUE);
+            rk = "c_cal_title_text";
+        }
+        if (rk != null) {
+            Fonts.apply(tv, rk);
+            return;
+        }
+        if (fontTextRole(tv, cs) == null) {
+            String sk = spanFontKey(cs);
+            if (sk != null) Fonts.apply(tv, sk);
+        }
+    }
+
+    /** Red bocnog menija (tema "Православац"): font prema originalnoj boji teksta. */
+    static void fontMenu(View v, boolean stable) {
+        if (v == null) return;
+        try {
+            if (v instanceof TextView) {
+                TextView tv = (TextView) v;
+                Fonts.apply(tv, menuKey(tv.getTextColors().getDefaultColor(), stable));
+            }
+            if (v instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) v;
+                for (int i = 0; i < g.getChildCount(); i++) fontMenu(g.getChildAt(i), stable);
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    /** Red liste molitvi i knjiga (tema "Православац"): font stavki liste. */
+    static void fontBook(View v) {
+        if (v == null) return;
+        try {
+            if (v instanceof TextView) {
+                TextView tv = (TextView) v;
+                if (fgKey(tv.getTextColors().getDefaultColor()) != null) Fonts.apply(tv, "c_web_text");
+            }
+            if (v instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) v;
+                for (int i = 0; i < g.getChildCount(); i++) fontBook(g.getChildAt(i));
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    private static void fontsOne(View v) {
+        if (v.getClass().getName().endsWith("TabLayout")) watchTabFonts(v);
+        if (isToolbar(v)) {
+            v.setTag(TAG_BAR, Boolean.TRUE);
+            fontsIn(v, "c_toolbar_text");
+        }
+        if (v instanceof ListView && !(v instanceof android.widget.ExpandableListView)) {
+            Drawable div = ((ListView) v).getDivider();
+            if (div instanceof ColorDrawable && (((ColorDrawable) div).getColor() & 0xffffff) == 0xdc143c) {
+                v.setTag(TAG_BOOKLIST, Boolean.TRUE);   // lista molitvi i knjiga
+            }
+        }
+        if (v instanceof TextView) {
+            TextView tv = (TextView) v;
+            String rk = roleKey(tv);
+            if (rk == null && isCalTitleText(tv.getText())) {
+                tv.setTag(TAG_TITLE, Boolean.TRUE);
+                rk = "c_cal_title_text";
+            }
+            if (rk != null) {
+                Fonts.apply(tv, rk);
+                return;
+            }
+            if (fontTextRole(tv, tv.getText()) != null) return;
+            String fk = inTabs(tv) ? "c_tab_text" : fgKey(tv.getTextColors().getDefaultColor());
+            if (fk != null) Fonts.apply(tv, fk);
+            else Fonts.refresh(tv);
+        }
+    }
+
+    /** Prolaz kroz hijerarhiju view-ova samo zbog fontova (tema "Православац"): ni jedna boja se ne mijenja. */
+    static void walkFonts(View v) {
+        if (v == null || inSettings(v)) return;
+        try {
+            fontsOne(v);
+            if (v instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) v;
+                for (int i = 0; i < g.getChildCount(); i++) walkFonts(g.getChildAt(i));
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
 }
