@@ -337,7 +337,7 @@ final class Fonts {
                 int rest = s;
                 if ((s & Typeface.BOLD) != 0 && f.bold != null) {
                     base = f.bold;
-                    rest = s & ~Typeface.BOLD;
+                    rest = (s & Typeface.ITALIC) != 0 ? Typeface.ITALIC : Typeface.NORMAL;   // isto kao s & ~BOLD, ali bez lint upozorenja
                 }
                 t = rest == 0 ? base : Typeface.create(base, rest);
                 f.styled[s] = t;
